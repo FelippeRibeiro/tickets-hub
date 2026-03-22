@@ -6,6 +6,8 @@ import (
 	"net/http"
 
 	"githubs.com/FelippeRibeiro/tickets-hub/internal/database"
+	"githubs.com/FelippeRibeiro/tickets-hub/internal/repository"
+	"githubs.com/FelippeRibeiro/tickets-hub/internal/server/controller"
 )
 
 func Server() {
@@ -16,14 +18,19 @@ func Server() {
 	defer db.Close()
 	server := http.NewServeMux()
 	//server.Handle("/", http.FileServer(http.Dir(".")))
-	server.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Hello World"))
-	})
+	//server.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
+	//	w.Write([]byte("Hello World"))
+	//})
 
 	server.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]bool{"ok": true})
 	})
 
+	userRepository := repository.NewUserRepository(db)
+	userController := controller.NewUserController(userRepository)
+	userController.SetupRoutes(server)
+
 	fmt.Println("Listening on port 8080")
 	http.ListenAndServe(":8080", server)
+
 }
