@@ -16,18 +16,18 @@ func NewUserRepository(db *sqlx.DB) *UserRepository {
 	}
 }
 
-func (ur *UserRepository) findAll() (*model.User, error) {
+func (ur *UserRepository) FindAll() (*model.User, error) {
 	users := model.User{}
 	err := ur.db.Get(&users, "SELECT * FROM users;")
 	return &users, err
 }
-func (ur *UserRepository) findByID(id int64) (*model.User, error) {
+func (ur *UserRepository) FindByID(id int64) (*model.User, error) {
 	user := model.User{}
 	err := ur.db.Get(&user, "SELECT * FROM users WHERE id=?;", id)
 	return &user, err
 }
 
-func (ur *UserRepository) findByName(name string) (*model.User, error) {
+func (ur *UserRepository) FindByName(name string) (*model.User, error) {
 	user := model.User{}
 	err := ur.db.Get(&user, "SELECT * FROM users WHERE name=?;", name)
 	return &user, err
