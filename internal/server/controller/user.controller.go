@@ -6,6 +6,7 @@ import (
 
 	"githubs.com/FelippeRibeiro/tickets-hub/internal/model"
 	"githubs.com/FelippeRibeiro/tickets-hub/internal/repository"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type UserController struct {
@@ -48,7 +49,15 @@ func (uc *UserController) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	//Hash password
-	err := uc.userRepository.Create(&user)
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+	}
+	user.Password = string(passwordHash)
+
+	//Creating user
+	err = uc.userRepository.Create(&user)
 	if err != nil {
 		//Validate errors and throw custom errors
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})

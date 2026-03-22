@@ -18,9 +18,6 @@ func Server() {
 	defer db.Close()
 	server := http.NewServeMux()
 	//server.Handle("/", http.FileServer(http.Dir(".")))
-	//server.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
-	//	w.Write([]byte("Hello World"))
-	//})
 
 	server.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]bool{"ok": true})
