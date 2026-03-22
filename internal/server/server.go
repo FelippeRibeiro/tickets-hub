@@ -14,8 +14,6 @@ func Server() {
 		panic(err)
 	}
 	defer db.Close()
-	resut, err := db.Exec("select * from tickets")
-	fmt.Println(resut, err)
 	server := http.NewServeMux()
 	//server.Handle("/", http.FileServer(http.Dir(".")))
 	server.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {

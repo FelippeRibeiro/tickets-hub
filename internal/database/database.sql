@@ -34,6 +34,10 @@ CREATE TABLE IF NOT EXISTS tickets (
         ON DELETE SET NULL
 );
 
+ALTER TABLE  users ADD CONSTRAINT check_name CHECK ( name != '' );
+ALTER TABLE  users ADD CONSTRAINT check_email CHECK ( email != '' );
 
+-- DELETE FROM users WHERE name = '';
+-- DELETE FROM users WHERE email = '';
 -- Testes
--- INSERT INTO users (name, email, is_admin, password) VALUES ('Felipe Ribeiro','felipper43@gmail.com',true,123456);
+-- INSERT INTO users (name, email, is_admin, password) VALUES ('Felipe Ribeiro','felipper433@gmail.com',true,123456);
