@@ -35,4 +35,5 @@ CREATE TABLE IF NOT EXISTS tickets (
 );
 
 
-
+-- Testes
+-- INSERT INTO users (name, email, is_admin, password) VALUES ('Felipe Ribeiro','felipper43@gmail.com',true,123456);
