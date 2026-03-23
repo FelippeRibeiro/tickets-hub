@@ -24,7 +24,12 @@ func Server() {
 	})
 
 	userRepository := repository.NewUserRepository(db)
+	topicRepository := repository.NewTopicRepository(db)
+
 	userController := controller.NewUserController(userRepository)
+	topicController := controller.NewTopicController(topicRepository)
+
+	topicController.SetupRoutes(server)
 	userController.SetupRoutes(server)
 
 	fmt.Println("Listening on port 8080")
