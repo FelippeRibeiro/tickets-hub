@@ -19,7 +19,7 @@ type UserController struct {
 }
 
 func (uc *UserController) SetupRoutes(server *http.ServeMux) {
-	server.Handle("GET /api/users", middlewares.AuthMiddleware(http.HandlerFunc(uc.GetAllUsers)))
+	server.Handle("GET /api/users", middlewares.AuthMiddleware(http.HandlerFunc(uc.GetAllUsers), false))
 	server.HandleFunc("POST /api/users", uc.CreateUser)
 	server.HandleFunc("POST /api/login", uc.Login)
 

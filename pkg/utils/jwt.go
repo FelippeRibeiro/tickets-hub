@@ -9,17 +9,19 @@ import (
 )
 
 type Claims struct {
-	UserID int    `json:"user"`
-	Email  string `json:"email"`
-	Name   string `json:"name"`
+	UserID  int    `json:"user"`
+	Email   string `json:"email"`
+	Name    string `json:"name"`
+	IsAdmin bool   `json:"isAdmin"`
 	jwt.RegisteredClaims
 }
 
 func GenerateJWTToken(userSearch *model.User) (string, error) {
 	claims := Claims{
-		UserID: userSearch.Id,
-		Email:  userSearch.Email,
-		Name:   userSearch.Name,
+		UserID:  userSearch.Id,
+		Email:   userSearch.Email,
+		Name:    userSearch.Name,
+		IsAdmin: userSearch.IsAdmin,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(3 * time.Hour)), // exp
 			IssuedAt:  jwt.NewNumericDate(time.Now()),                    // iat
