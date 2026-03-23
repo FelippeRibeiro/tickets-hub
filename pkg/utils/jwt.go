@@ -2,8 +2,8 @@ package utils
 
 import (
 	"fmt"
+	"github.com/FelippeRibeiro/tickets-hub/internal/model"
 	"github.com/golang-jwt/jwt/v5"
-	"githubs.com/FelippeRibeiro/tickets-hub/internal/model"
 	"time"
 )
 

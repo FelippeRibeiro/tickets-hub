@@ -14,3 +14,8 @@ type CreateUser struct {
 	IsAdmin  bool   `json:"is_admin,omitempty" db:"is_admin"`
 	Password string `json:"password" db:"password"`
 }
+
+type LoginUser struct {
+	Email    string `json:"email,omitempty" db:"email"`
+	Password string `json:"password,omitempty" db:"password"`
+}

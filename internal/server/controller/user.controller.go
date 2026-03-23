@@ -2,10 +2,11 @@ package controller
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
-	"githubs.com/FelippeRibeiro/tickets-hub/internal/model"
-	"githubs.com/FelippeRibeiro/tickets-hub/internal/repository"
+	"github.com/FelippeRibeiro/tickets-hub/internal/model"
+	"github.com/FelippeRibeiro/tickets-hub/internal/repository"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -16,6 +17,7 @@ type UserController struct {
 func (uc *UserController) SetupRoutes(server *http.ServeMux) {
 	server.HandleFunc("GET /api/users", uc.GetAllUsers)
 	server.HandleFunc("POST /api/users", uc.CreateUser)
+	server.HandleFunc("POST /api/login", uc.Login)
 
 }
 
@@ -43,6 +45,7 @@ func (uc *UserController) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	//Validate user fields
+	fmt.Println(user)
 	if user.Name == "" || user.Email == "" || user.Password == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": "name or email or password is empty"})
@@ -53,6 +56,7 @@ func (uc *UserController) CreateUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
 	}
 	user.Password = string(passwordHash)
 
@@ -65,4 +69,29 @@ func (uc *UserController) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(user)
+}
+
+func (uc *UserController) Login(w http.ResponseWriter, r *http.Request) {
+	var user model.LoginUser
+	json.NewDecoder(r.Body).Decode(&user)
+	w.Header().Set("Content-Type", "application/json")
+	if user.Email == "" || user.Password == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "email or password is empty"})
+		return
+	}
+
+	userSearch, err := uc.userRepository.FindByEmail(user.Email)
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	fmt.Println(userSearch)
+
+	err = bcrypt.CompareHashAndPassword([]byte(userSearch.Password), []byte(user.Password))
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]string{"error": "email or password is wrong"})
+		return
+	}
+
 }

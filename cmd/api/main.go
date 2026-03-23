@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 
+	"github.com/FelippeRibeiro/tickets-hub/internal/server"
 	"github.com/joho/godotenv"
-	"githubs.com/FelippeRibeiro/tickets-hub/internal/server"
 )
 
 func main() {

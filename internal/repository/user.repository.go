@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"githubs.com/FelippeRibeiro/tickets-hub/internal/model"
+	"github.com/FelippeRibeiro/tickets-hub/internal/model"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -30,8 +30,14 @@ func (ur *UserRepository) FindByID(id int64) (*model.User, error) {
 
 func (ur *UserRepository) FindByName(name string) (*model.User, error) {
 	user := model.User{}
-	err := ur.db.Get(&user, "SELECT * FROM users WHERE name=?;", name)
+	err := ur.db.Get(&user, "SELECT * FROM users WHERE name=$1;", name)
 	return &user, err
+}
+
+func (ur *UserRepository) FindByEmail(email string) (model.User, error) {
+	user := model.User{}
+	err := ur.db.Get(&user, "SELECT * FROM users WHERE email= $1;", email)
+	return user, err
 }
 
 func (ur *UserRepository) Create(user *model.CreateUser) error {

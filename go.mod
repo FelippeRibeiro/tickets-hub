@@ -1,4 +1,4 @@
-module githubs.com/FelippeRibeiro/tickets-hub
+module github.com/FelippeRibeiro/tickets-hub
 
 go 1.26
 

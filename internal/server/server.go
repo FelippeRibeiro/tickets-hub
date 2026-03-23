@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"githubs.com/FelippeRibeiro/tickets-hub/internal/database"
-	"githubs.com/FelippeRibeiro/tickets-hub/internal/repository"
-	"githubs.com/FelippeRibeiro/tickets-hub/internal/server/controller"
+	"github.com/FelippeRibeiro/tickets-hub/internal/database"
+	"github.com/FelippeRibeiro/tickets-hub/internal/repository"
+	"github.com/FelippeRibeiro/tickets-hub/internal/server/controller"
 )
 
 func Server() {
