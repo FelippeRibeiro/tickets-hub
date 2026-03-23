@@ -2,7 +2,6 @@ package middlewares
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/FelippeRibeiro/tickets-hub/pkg/utils"
@@ -10,7 +9,6 @@ import (
 
 func AuthMiddleware(next http.Handler, isAdmin bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("AuthMiddleware")
 		token, err := r.Cookie("token")
 		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)

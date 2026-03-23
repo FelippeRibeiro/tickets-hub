@@ -19,7 +19,8 @@ type UserController struct {
 }
 
 func (uc *UserController) SetupRoutes(server *http.ServeMux) {
-	server.Handle("GET /api/users", middlewares.AuthMiddleware(http.HandlerFunc(uc.GetAllUsers), false))
+	server.Handle("GET /api/users", middlewares.AuthMiddleware(http.HandlerFunc(uc.GetAllUsers), true))
+	server.Handle("GET /api/me", middlewares.AuthMiddleware(http.HandlerFunc(uc.GetAuthUser), false))
 	server.HandleFunc("POST /api/users", uc.CreateUser)
 	server.HandleFunc("POST /api/login", uc.Login)
 
@@ -41,6 +42,24 @@ func (uc *UserController) GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(users)
+}
+
+func (uc *UserController) GetAuthUser(w http.ResponseWriter, r *http.Request) {
+	user, ok := (r.Context().Value("user")).(*utils.Claims)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	userSearch, err := uc.userRepository.FindByID(user.UserID)
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(userSearch)
 }
 
 func (uc *UserController) CreateUser(w http.ResponseWriter, r *http.Request) {

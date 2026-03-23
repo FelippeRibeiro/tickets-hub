@@ -22,9 +22,9 @@ func (ur *UserRepository) FindAll() ([]model.User, error) {
 	return users, err
 }
 
-func (ur *UserRepository) FindByID(id int64) (*model.User, error) {
+func (ur *UserRepository) FindByID(id int) (*model.User, error) {
 	user := model.User{}
-	err := ur.db.Get(&user, "SELECT * FROM users WHERE id=?;", id)
+	err := ur.db.Get(&user, "SELECT * FROM users WHERE id=$1;", id)
 	return &user, err
 }
 
