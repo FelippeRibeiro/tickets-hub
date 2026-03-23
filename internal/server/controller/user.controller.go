@@ -9,6 +9,7 @@ import (
 
 	"github.com/FelippeRibeiro/tickets-hub/internal/model"
 	"github.com/FelippeRibeiro/tickets-hub/internal/repository"
+	"github.com/FelippeRibeiro/tickets-hub/internal/server/middlewares"
 	"github.com/FelippeRibeiro/tickets-hub/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -18,7 +19,7 @@ type UserController struct {
 }
 
 func (uc *UserController) SetupRoutes(server *http.ServeMux) {
-	server.HandleFunc("GET /api/users", uc.GetAllUsers)
+	server.Handle("GET /api/users", middlewares.AuthMiddleware(http.HandlerFunc(uc.GetAllUsers)))
 	server.HandleFunc("POST /api/users", uc.CreateUser)
 	server.HandleFunc("POST /api/login", uc.Login)
 
