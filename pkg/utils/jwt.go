@@ -1,24 +1,31 @@
 package utils
 
 import (
-	"fmt"
+	"os"
+	"time"
+
 	"github.com/FelippeRibeiro/tickets-hub/internal/model"
 	"github.com/golang-jwt/jwt/v5"
-	"time"
 )
 
-func main() {
-	//claims := jwt.MapClaims{
-	//	"username": user.Name,
-	//	"email":    user.Email,
-	//	"exp":      time.Now().Add(time.Hour * 3).Unix(),
-	//}
-	//
-	//token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	//tokenString, err := token.SignedString(secretKey)
-	//if err != nil {
-	//	fmt.Println("Error signing token:", err)
-	//	return
-	//}
-	//fmt.Println(tokenString)
+type Claims struct {
+	UserID int    `json:"user"`
+	Email  string `json:"email"`
+	Name   string `json:"name"`
+	jwt.RegisteredClaims
+}
+
+func GenerateJWTToken(userSearch *model.User) (string, error) {
+	claims := Claims{
+		UserID: userSearch.Id,
+		Email:  userSearch.Email,
+		Name:   userSearch.Name,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(3 * time.Hour)), // exp
+			IssuedAt:  jwt.NewNumericDate(time.Now()),                    // iat
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(os.Getenv("ACCESS_SECRET")))
 }

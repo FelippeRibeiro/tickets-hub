@@ -1,12 +1,15 @@
 package controller
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/FelippeRibeiro/tickets-hub/internal/model"
 	"github.com/FelippeRibeiro/tickets-hub/internal/repository"
+	"github.com/FelippeRibeiro/tickets-hub/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -80,18 +83,33 @@ func (uc *UserController) Login(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]string{"error": "email or password is empty"})
 		return
 	}
-
 	userSearch, err := uc.userRepository.FindByEmail(user.Email)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "user not found"})
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
-	fmt.Println(userSearch)
 
 	err = bcrypt.CompareHashAndPassword([]byte(userSearch.Password), []byte(user.Password))
 	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": "email or password is wrong"})
 		return
 	}
+
+	payload, err := utils.GenerateJWTToken(&userSearch)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+	}
+
+	w.Header().Set("Set-Cookie", "token="+payload)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"token": payload})
 
 }
