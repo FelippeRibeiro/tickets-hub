@@ -103,7 +103,7 @@ func (uc *UserController) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(user)
+	json.NewEncoder(w).Encode(map[string]string{"message": "user created successfully"})
 }
 
 func (uc *UserController) Login(w http.ResponseWriter, r *http.Request) {
