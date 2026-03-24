@@ -1,9 +1,30 @@
 services:
+  app:
+    build: .
+    container_name: ticket-app
+    volumes:
+      - ./.env:/app/.env
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    networks:
+      app-network:
+
+
+
   postgres:
     image: postgres:latest
+    container_name: ticket-postgres
     environment:
       POSTGRES_DB: dev
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: root
     ports:
       - "5432:5432"
+    networks:
+      app-network:
+
+
+networks:
+  app-network:
