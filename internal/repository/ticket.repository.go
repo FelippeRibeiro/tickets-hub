@@ -14,6 +14,15 @@ func NewTicketRepository(db *sqlx.DB) *TicketRepository {
 	return &TicketRepository{db: db}
 }
 
+func (tr *TicketRepository) FindByID(id int) (*model.Ticket, error) {
+	var t model.Ticket
+	err := tr.db.Get(&t, `SELECT * FROM tickets WHERE id = $1`, id)
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
 func (tr *TicketRepository) Create(userID int, ticket *model.CreateTicket) (*model.Ticket, error) {
 	var out model.Ticket
 	err := tr.db.QueryRowx(`

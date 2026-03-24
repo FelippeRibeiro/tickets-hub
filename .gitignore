@@ -2,3 +2,4 @@
 /.idea
 .env
 .idea
+frontend/node_modules

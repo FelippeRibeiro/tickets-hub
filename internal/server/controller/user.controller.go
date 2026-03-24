@@ -18,18 +18,30 @@ type UserController struct {
 	userRepository *repository.UserRepository
 }
 
+func NewUserController(userRepository *repository.UserRepository) *UserController {
+	return &UserController{
+		userRepository: userRepository,
+	}
+}
+
 func (uc *UserController) SetupRoutes(server *http.ServeMux) {
 	server.Handle("GET /api/users", middlewares.AuthMiddleware(http.HandlerFunc(uc.GetAllUsers), true))
 	server.Handle("GET /api/me", middlewares.AuthMiddleware(http.HandlerFunc(uc.GetAuthUser), false))
 	server.HandleFunc("POST /api/users", uc.CreateUser)
 	server.HandleFunc("POST /api/login", uc.Login)
-
+	server.HandleFunc("POST /api/logout", uc.Logout)
 }
 
-func NewUserController(userRepository *repository.UserRepository) *UserController {
-	return &UserController{
-		userRepository: userRepository,
-	}
+func (uc *UserController) Logout(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "token",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (uc *UserController) GetAllUsers(w http.ResponseWriter, r *http.Request) {
@@ -128,7 +140,14 @@ func (uc *UserController) Login(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 	}
 
-	w.Header().Set("Set-Cookie", "token="+payload)
+	http.SetCookie(w, &http.Cookie{
+		Name:     "token",
+		Value:    payload,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   3 * 60 * 60,
+	})
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"token": payload})
 
