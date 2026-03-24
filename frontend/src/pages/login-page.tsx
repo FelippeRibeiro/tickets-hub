@@ -6,7 +6,6 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ThemeToggle } from '@/components/theme-toggle'
 import {
   Card,
   CardContent,
@@ -42,9 +41,8 @@ export function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-svh items-center justify-center bg-background p-4">
-      <ThemeToggle floating />
-      <Card className="w-full max-w-md border-border shadow-lg">
+    <div className="relative flex min-h-svh items-center justify-center bg-linear-to-b from-background via-background to-muted/30 p-4">
+      <Card className="w-full max-w-md border-border/70 bg-card/80 shadow-xl backdrop-blur">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl">Entrar</CardTitle>
           <CardDescription>
@@ -81,7 +79,7 @@ export function LoginPage() {
               />
             </div>
           </CardContent>
-          <CardFooter className="flex flex-col gap-3 border-t bg-muted/30 sm:flex-row sm:justify-between">
+          <CardFooter className="flex flex-col gap-3 border-t border-border/70 bg-muted/20 sm:flex-row sm:justify-between">
             <Button type="submit" disabled={pending} className="w-full sm:w-auto">
               {pending ? 'Entrando…' : 'Entrar'}
             </Button>

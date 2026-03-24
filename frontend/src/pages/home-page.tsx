@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MessageCircle, Heart } from 'lucide-react';
-import { ApiError, getTickets, getTopics, type TicketWithTopic, type Topic } from '@/lib/api';
+import { ApiError, getTicketLikes, getTickets, getTopics, likeTicket, unlikeTicket, type TicketWithTopic, type Topic } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
 import { ComposeTicketDialog } from '@/components/compose-ticket-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn, initialsFromName } from '@/lib/utils';
 
@@ -26,6 +25,9 @@ export function HomePage() {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [tickets, setTickets] = useState<TicketWithTopic[]>([]);
   const [topicFilter, setTopicFilter] = useState<number | null>(null);
+  const [likedByTicket, setLikedByTicket] = useState<Record<number, boolean>>({});
+  const [likesByTicket, setLikesByTicket] = useState<Record<number, number>>({});
+  const [pendingLikeByTicket, setPendingLikeByTicket] = useState<Record<number, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,29 +69,76 @@ export function HomePage() {
     };
   }, [loadTickets]);
 
+  useEffect(() => {
+    if (tickets.length === 0) {
+      setLikedByTicket({});
+      setLikesByTicket({});
+      return;
+    }
+    void (async () => {
+      const entries = await Promise.all(
+        tickets.map(async (t) => {
+          try {
+            const summary = await getTicketLikes(t.id);
+            return [t.id, summary] as const;
+          } catch {
+            return [t.id, { liked: false, count: t.likes_count ?? 0 }] as const;
+          }
+        })
+      );
+      setLikedByTicket(Object.fromEntries(entries.map(([id, s]) => [id, s.liked])));
+      setLikesByTicket(Object.fromEntries(entries.map(([id, s]) => [id, s.count])));
+    })();
+  }, [tickets]);
+
   const refreshFeed = useCallback(() => {
     void loadTickets();
   }, [loadTickets]);
 
+  async function onToggleLike(e: React.MouseEvent, ticketID: number) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (pendingLikeByTicket[ticketID]) {
+      return;
+    }
+    setPendingLikeByTicket((prev) => ({ ...prev, [ticketID]: true }));
+    try {
+      const isLiked = !!likedByTicket[ticketID];
+      if (isLiked) {
+        await unlikeTicket(ticketID);
+        setLikedByTicket((prev) => ({ ...prev, [ticketID]: false }));
+        setLikesByTicket((prev) => ({ ...prev, [ticketID]: Math.max((prev[ticketID] ?? 1) - 1, 0) }));
+      } else {
+        const summary = await likeTicket(ticketID);
+        setLikedByTicket((prev) => ({ ...prev, [ticketID]: summary.liked }));
+        setLikesByTicket((prev) => ({ ...prev, [ticketID]: summary.count }));
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Erro ao curtir ticket');
+    } finally {
+      setPendingLikeByTicket((prev) => ({ ...prev, [ticketID]: false }));
+    }
+  }
+
   return (
-    <div className="mx-auto min-h-svh max-w-xl border-x border-border">
-      <header className="sticky top-0 z-30 border-b border-border bg-background/90 px-4 py-3 backdrop-blur">
+    <div className="mx-auto min-h-svh max-w-2xl border-x border-border/70 bg-card/10">
+      <header className="sticky top-0 z-30 border-b border-border/70 bg-background/90 px-5 py-4 backdrop-blur">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-lg font-bold tracking-tight">Feed</h1>
-            <p className="text-xs text-muted-foreground">Últimos tickets da comunidade</p>
+            <h1 className="text-xl font-bold tracking-tight">Feed</h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">Últimos tickets da comunidade</p>
           </div>
           {user && !user.is_admin ? (
             <ComposeTicketDialog topics={topics} onCreated={refreshFeed} />
           ) : user?.is_admin ? (
-            <p className="max-w-[10rem] text-right text-xs text-muted-foreground">Contas admin não abrem tickets pelo app.</p>
+            <p className="max-w-40 text-right text-xs text-muted-foreground">Contas admin não abrem tickets pelo app.</p>
           ) : null}
         </div>
       </header>
 
-      <div className="border-b border-border px-2 py-2">
-        <ScrollArea className="w-full whitespace-nowrap">
-          <div className="flex w-max gap-2 pb-1">
+      <div className="border-b border-border/70 px-4 py-3">
+        <div className="w-full overflow-x-auto pb-1">
+          <div className="flex w-max min-w-full gap-2.5">
             <Button type="button" size="sm" variant={topicFilter === null ? 'secondary' : 'ghost'} className={cn('shrink-0 rounded-full')} onClick={() => setTopicFilter(null)}>
               Todos
             </Button>
@@ -99,27 +148,26 @@ export function HomePage() {
               </Button>
             ))}
           </div>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
+        </div>
       </div>
 
-      <div className="divide-y divide-border">
+      <div className="p-3">
         {error ? (
-          <div className="p-6 text-center text-sm text-destructive">{error}</div>
+          <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-center text-sm text-destructive">{error}</div>
         ) : loading ? (
-          <div className="space-y-0 p-2">
+          <div className="space-y-3 p-1">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="border-b border-border p-4">
+              <div key={i} className="rounded-xl border border-border/70 bg-card/60 p-4">
                 <Skeleton className="mb-2 h-4 w-3/4" />
                 <Skeleton className="h-3 w-1/2" />
               </div>
             ))}
           </div>
         ) : tickets.length === 0 ? (
-          <div className="p-10 text-center text-sm text-muted-foreground">Nenhum ticket ainda. Seja o primeiro a publicar.</div>
+          <div className="rounded-xl border border-dashed border-border/70 p-10 text-center text-sm text-muted-foreground">Nenhum ticket ainda. Seja o primeiro a publicar.</div>
         ) : (
           tickets.map((t) => (
-            <Link key={t.id} to={`/ticket/${t.id}`} className="block px-4 py-3 transition-colors hover:bg-muted/40">
+            <Link key={t.id} to={`/ticket/${t.id}`} className="mb-3 block rounded-xl border border-border/70 bg-card/60 px-4 py-3 shadow-sm transition-colors hover:bg-muted/30">
               <div className="flex gap-3">
                 <div
                   className="mt-1 flex size-10 shrink-0 select-none items-center justify-center rounded-full bg-muted text-xs font-semibold tracking-tight text-muted-foreground"
@@ -136,16 +184,24 @@ export function HomePage() {
                   <Badge variant="secondary" className="mt-1 text-[10px]">
                     {t.topic_name || `Tópico #${t.topic_id}`}
                   </Badge>
-                  <p className="mt-2 text-[15px] font-medium leading-snug">{t.title}</p>
+                  <p className="mt-2 text-base font-semibold leading-snug">{t.title}</p>
                   <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{t.description}</p>
                   <div className="mt-3 flex max-w-xs items-center gap-6 text-muted-foreground">
-                    <span className="flex items-center gap-1.5 text-xs">
-                      <Heart className="size-4 opacity-60" />
-                      <span className="opacity-70">—</span>
-                    </span>
+                    <button
+                      type="button"
+                      className={cn(
+                        'flex items-center gap-1.5 text-xs',
+                        likedByTicket[t.id] ? 'text-red-400' : 'text-muted-foreground'
+                      )}
+                      disabled={pendingLikeByTicket[t.id]}
+                      onClick={(e) => void onToggleLike(e, t.id)}
+                    >
+                      <Heart className={cn('size-4', likedByTicket[t.id] ? 'fill-current opacity-100' : 'opacity-60')} />
+                      <span className="opacity-90">{likesByTicket[t.id] ?? t.likes_count ?? 0}</span>
+                    </button>
                     <span className="flex items-center gap-1.5 text-xs">
                       <MessageCircle className="size-4 opacity-60" />
-                      <span className="opacity-70">Em breve</span>
+                      <span className="opacity-70">{t.comments_count ?? 0}</span>
                     </span>
                   </div>
                 </div>

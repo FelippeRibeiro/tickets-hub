@@ -60,6 +60,7 @@ export type User = {
 export type Topic = {
   id: number
   name: string
+  tickets_count?: number
 }
 
 export type Ticket = {
@@ -71,9 +72,30 @@ export type Ticket = {
   topic_id: number
   created_at: string
   user_name: string
+  likes_count: number
+  comments_count: number
 }
 
 export type TicketWithTopic = Ticket & { topic_name: string }
+export type Comment = {
+  id: number
+  comment: string
+  created_at: string
+  user_id: number
+  ticket_id: number
+  user_name: string
+}
+export type PaginatedComments = {
+  items: Comment[]
+  limit: number
+  offset: number
+  next_offset: number
+  has_more: boolean
+}
+export type LikeSummary = {
+  count: number
+  liked: boolean
+}
 
 export function getHealth() {
   return api<{ ok: boolean }>('/health')
@@ -90,6 +112,19 @@ export function createTopic(name: string) {
   })
 }
 
+export type DeleteTopicConflict = {
+  error: string
+  tickets_count: number
+  requires_force: boolean
+}
+
+export async function deleteTopic(id: number, force = false) {
+  const q = force ? '?force=true' : ''
+  return api<{ message: string; id: number }>(`/api/topics/${id}${q}`, {
+    method: 'DELETE',
+  })
+}
+
 export function registerUser(payload: {
   name: string
   email: string
@@ -102,9 +137,8 @@ export function registerUser(payload: {
 }
 
 type CreateUserResponse = {
-  name?: string
-  email?: string
-  password?: string
+  message: string
+  token: string
 }
 
 export function login(payload: { email: string; password: string }) {
@@ -144,5 +178,39 @@ export function createTicket(payload: {
   return api<Ticket>('/api/tickets', {
     method: 'POST',
     body: JSON.stringify(payload),
+  })
+}
+
+export function getTicketComments(
+  ticketId: number,
+  params?: { limit?: number; offset?: number }
+) {
+  const limit = params?.limit ?? 10
+  const offset = params?.offset ?? 0
+  return api<PaginatedComments>(
+    `/api/tickets/${ticketId}/comments?limit=${limit}&offset=${offset}`
+  )
+}
+
+export function createTicketComment(ticketId: number, comment: string) {
+  return api<Comment>(`/api/tickets/${ticketId}/comments`, {
+    method: 'POST',
+    body: JSON.stringify({ comment }),
+  })
+}
+
+export function getTicketLikes(ticketId: number) {
+  return api<LikeSummary>(`/api/tickets/${ticketId}/likes`)
+}
+
+export function likeTicket(ticketId: number) {
+  return api<LikeSummary>(`/api/tickets/${ticketId}/likes`, {
+    method: 'POST',
+  })
+}
+
+export function unlikeTicket(ticketId: number) {
+  return api<void>(`/api/tickets/${ticketId}/likes`, {
+    method: 'DELETE',
   })
 }

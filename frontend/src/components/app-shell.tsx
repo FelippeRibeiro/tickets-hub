@@ -1,6 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { LogOut, Settings, Ticket } from 'lucide-react'
-import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/contexts/auth-context'
 import { cn } from '@/lib/utils'
@@ -19,15 +18,15 @@ export function AppShell() {
   return (
     <div className="min-h-svh bg-background text-foreground">
       <div className="mx-auto flex min-h-svh max-w-6xl">
-        <aside className="sticky top-0 hidden h-svh w-56 shrink-0 flex-col border-r border-border px-3 py-4 md:flex">
+        <aside className="sticky top-0 hidden h-svh w-64 shrink-0 flex-col border-r border-border/70 bg-card/30 px-4 py-5 md:flex">
           <Link
             to="/"
-            className="mb-6 flex items-center gap-2 px-3 text-lg font-semibold tracking-tight"
+            className="mb-8 flex items-center gap-2 px-2 text-lg font-semibold tracking-tight"
           >
             <Ticket className="size-6 text-primary" />
             Tickets Hub
           </Link>
-          <nav className="flex flex-1 flex-col gap-1">
+          <nav className="flex flex-1 flex-col gap-1.5">
             <NavLink to="/" end className={navClass}>
               Início
             </NavLink>
@@ -40,17 +39,13 @@ export function AppShell() {
               </NavLink>
             ) : null}
           </nav>
-          <div className="mt-auto space-y-2 border-t border-border pt-4">
-            <div className="flex items-center justify-between px-1">
-              <span className="text-xs text-muted-foreground">Tema</span>
-              <ThemeToggle />
-            </div>
-            <p className="truncate px-3 text-xs text-muted-foreground">
+          <div className="mt-auto space-y-3 rounded-xl border border-border/70 bg-muted/20 p-3">
+            <p className="truncate px-1 text-xs text-muted-foreground">
               {user?.name}
             </p>
             <Button
-              variant="ghost"
-              className="w-full justify-start gap-2"
+              variant="outline"
+              className="w-full justify-start gap-2 border-border/70 bg-background/70"
               onClick={() => void logout()}
             >
               <LogOut className="size-4" />
@@ -60,17 +55,14 @@ export function AppShell() {
         </aside>
 
         <main className="min-w-0 flex-1 border-border md:border-l-0">
-          <header className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-border bg-background/80 px-4 py-3 backdrop-blur md:hidden">
+          <header className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-border/70 bg-background/80 px-4 py-3 backdrop-blur md:hidden">
             <Link to="/" className="flex items-center gap-2 font-semibold">
               <Ticket className="size-5 text-primary" />
               Tickets Hub
             </Link>
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-              <Button size="sm" variant="outline" onClick={() => void logout()}>
-                Sair
-              </Button>
-            </div>
+            <Button size="sm" variant="outline" onClick={() => void logout()}>
+              Sair
+            </Button>
           </header>
           <Outlet />
         </main>

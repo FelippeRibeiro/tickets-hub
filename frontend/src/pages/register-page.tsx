@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ApiError, registerUser } from '@/lib/api'
+import { useAuth } from '@/contexts/auth-context'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ThemeToggle } from '@/components/theme-toggle'
 import {
   Card,
   CardContent,
@@ -17,6 +17,7 @@ import {
 
 export function RegisterPage() {
   const navigate = useNavigate()
+  const { refresh } = useAuth()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -29,7 +30,8 @@ export function RegisterPage() {
     setPending(true)
     try {
       await registerUser({ name, email, password })
-      navigate('/login', { replace: true })
+      await refresh()
+      navigate('/', { replace: true })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível registrar')
     } finally {
@@ -38,9 +40,8 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="relative flex min-h-svh items-center justify-center bg-background p-4">
-      <ThemeToggle floating />
-      <Card className="w-full max-w-md border-border shadow-lg">
+    <div className="relative flex min-h-svh items-center justify-center bg-linear-to-b from-background via-background to-muted/30 p-4">
+      <Card className="w-full max-w-md border-border/70 bg-card/80 shadow-xl backdrop-blur">
         <CardHeader>
           <CardTitle className="text-2xl">Criar conta</CardTitle>
           <CardDescription>
@@ -86,7 +87,7 @@ export function RegisterPage() {
               />
             </div>
           </CardContent>
-          <CardFooter className="flex flex-col gap-3 border-t bg-muted/30 sm:flex-row sm:justify-between">
+          <CardFooter className="flex flex-col gap-3 border-t border-border/70 bg-muted/20 sm:flex-row sm:justify-between">
             <Button type="submit" disabled={pending} className="w-full sm:w-auto">
               {pending ? 'Registrando…' : 'Registrar'}
             </Button>
