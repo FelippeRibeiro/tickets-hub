@@ -24,3 +24,15 @@ func (tr *TicketRepository) Create(userID int, ticket *model.CreateTicket) (*mod
 	).StructScan(&out)
 	return &out, err
 }
+
+
+func (tr *TicketRepository) List(topicID *int) ([]model.Ticket, error) {
+	tickets := []model.Ticket{}
+	var err error
+	if topicID != nil {
+		err = tr.db.Select(&tickets, `SELECT * FROM tickets WHERE topic_id = $1 ORDER BY created_at DESC`, *topicID)
+	} else {
+		err = tr.db.Select(&tickets, `SELECT * FROM tickets ORDER BY created_at DESC`)
+	}
+	return tickets, err
+}

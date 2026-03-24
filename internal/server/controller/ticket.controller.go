@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/FelippeRibeiro/tickets-hub/internal/model"
 	"github.com/FelippeRibeiro/tickets-hub/internal/repository"
@@ -25,7 +26,44 @@ func NewTicketController(ticketRepository *repository.TicketRepository, topicRep
 }
 
 func (tc *TicketController) SetupRoutes(server *http.ServeMux) {
+	server.Handle("GET /api/tickets", middlewares.AuthMiddleware(http.HandlerFunc(tc.ListTickets), false))
 	server.Handle("POST /api/tickets", middlewares.AuthMiddleware(http.HandlerFunc(tc.CreateTicket), false))
+}
+
+func (tc *TicketController) ListTickets(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	var topicID *int
+	if raw := r.URL.Query().Get("topic_id"); raw != "" {
+		id, err := strconv.Atoi(raw)
+		if err != nil || id <= 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "invalid topic_id query parameter"})
+			return
+		}
+		_, err = tc.topicRepository.FindByID(id)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(map[string]string{"error": "topic not found"})
+				return
+			}
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+			return
+		}
+		topicID = &id
+	}
+
+	tickets, err := tc.ticketRepository.List(topicID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(tickets)
 }
 
 func (tc *TicketController) CreateTicket(w http.ResponseWriter, r *http.Request) {
