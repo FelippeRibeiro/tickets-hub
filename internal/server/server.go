@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/FelippeRibeiro/tickets-hub/internal/database"
 	"github.com/FelippeRibeiro/tickets-hub/internal/repository"
@@ -17,7 +19,18 @@ func Server() {
 	}
 	defer db.Close()
 	server := http.NewServeMux()
-	//server.Handle("/", http.FileServer(http.Dir(".")))
+
+	staticDir := "./frontend/dist"
+	server.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		path := filepath.Join(staticDir, r.URL.Path)
+		fi, err := os.Stat(path)
+
+		if os.IsNotExist(err) || fi.IsDir() {
+			http.ServeFile(w, r, filepath.Join(staticDir, "index.html"))
+			return
+		}
+		http.FileServer(http.Dir(staticDir)).ServeHTTP(w, r)
+	})
 
 	server.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]bool{"ok": true})
@@ -36,6 +49,8 @@ func Server() {
 	ticketController.SetupRoutes(server)
 
 	fmt.Println("Listening on port 8080")
-	http.ListenAndServe(":8080", server)
+	if err := http.ListenAndServe(":8080", server); err != nil {
+		panic(err)
+	}
 
 }

@@ -32,7 +32,7 @@ func (tc *TicketController) SetupRoutes(server *http.ServeMux) {
 }
 
 type ticketWithTopic struct {
-	model.Ticket
+	model.TicketWithUserName
 	TopicName string `json:"topic_name"`
 }
 
@@ -66,7 +66,7 @@ func (tc *TicketController) GetTicket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(ticketWithTopic{Ticket: *ticket, TopicName: topicName})
+	json.NewEncoder(w).Encode(ticketWithTopic{TicketWithUserName: *ticket, TopicName: topicName})
 }
 
 func (tc *TicketController) ListTickets(w http.ResponseWriter, r *http.Request) {
@@ -113,7 +113,7 @@ func (tc *TicketController) ListTickets(w http.ResponseWriter, r *http.Request) 
 	}
 	out := make([]ticketWithTopic, 0, len(tickets))
 	for _, tk := range tickets {
-		out = append(out, ticketWithTopic{Ticket: tk, TopicName: topicNames[tk.TopicID]})
+		out = append(out, ticketWithTopic{TicketWithUserName: tk, TopicName: topicNames[tk.TopicID]})
 	}
 
 	w.WriteHeader(http.StatusOK)

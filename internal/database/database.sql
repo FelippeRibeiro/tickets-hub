@@ -41,3 +41,6 @@ ALTER TABLE  users ADD CONSTRAINT check_email CHECK ( email != '' );
 -- DELETE FROM users WHERE email = '';
 -- Testes
 -- INSERT INTO users (name, email, is_admin, password) VALUES ('Felipe Ribeiro','felipper433@gmail.com',true,123456);
+
+
+-- SELECT  t.*,u.name as user_name FROM tickets t INNER JOIN users u on t.user_id = u.id ORDER BY created_at DESC;
