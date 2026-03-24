@@ -5,7 +5,7 @@ import { ApiError, createTicketComment, getTicket, getTicketComments, getTicketL
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { initialsFromName } from '@/lib/utils';
+import { cn, initialsFromName } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
 
 function formatDate(iso: string) {
@@ -22,41 +22,33 @@ function formatDate(iso: string) {
   }
 }
 
-function normalizeCommentsPage(
-  payload: unknown,
-  fallbackLimit = 10,
-  fallbackOffset = 0
-): { items: Comment[]; has_more: boolean; next_offset: number } {
+function normalizeCommentsPage(payload: unknown, fallbackLimit = 10, fallbackOffset = 0): { items: Comment[]; has_more: boolean; next_offset: number } {
   // Backward compatibility: old backend returned only array.
   if (Array.isArray(payload)) {
-    const items = payload as Comment[]
+    const items = payload as Comment[];
     return {
       items,
       has_more: items.length >= fallbackLimit,
       next_offset: fallbackOffset + items.length,
-    }
+    };
   }
-  if (
-    payload &&
-    typeof payload === 'object' &&
-    Array.isArray((payload as { items?: unknown }).items)
-  ) {
+  if (payload && typeof payload === 'object' && Array.isArray((payload as { items?: unknown }).items)) {
     const page = payload as {
-      items: Comment[]
-      has_more?: boolean
-      next_offset?: number
-    }
+      items: Comment[];
+      has_more?: boolean;
+      next_offset?: number;
+    };
     return {
       items: page.items,
       has_more: Boolean(page.has_more),
       next_offset: Number(page.next_offset ?? fallbackOffset + page.items.length),
-    }
+    };
   }
   return {
     items: [],
     has_more: false,
     next_offset: fallbackOffset,
-  }
+  };
 }
 
 export function TicketDetailPage() {
@@ -111,11 +103,7 @@ export function TicketDetailPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const [t, c, l] = await Promise.all([
-          getTicket(ticketId),
-          getTicketComments(ticketId, { limit: COMMENT_PAGE_SIZE, offset: 0 }),
-          getTicketLikes(ticketId),
-        ]);
+        const [t, c, l] = await Promise.all([getTicket(ticketId), getTicketComments(ticketId, { limit: COMMENT_PAGE_SIZE, offset: 0 }), getTicketLikes(ticketId)]);
         if (!cancelled) {
           const normalized = normalizeCommentsPage(c, COMMENT_PAGE_SIZE, 0);
           setTicket(t);
@@ -200,7 +188,7 @@ export function TicketDetailPage() {
               ...prev,
               comments_count: (prev.comments_count ?? 0) + 1,
             }
-          : prev
+          : prev,
       );
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Falha ao enviar comentário');
@@ -232,10 +220,7 @@ export function TicketDetailPage() {
           <>
             <article className="rounded-xl border border-border/70 bg-card/60 p-5 shadow-sm">
               <div className="flex gap-3">
-                <div
-                  className="flex size-12 shrink-0 select-none items-center justify-center rounded-full bg-muted text-sm font-semibold tracking-tight text-muted-foreground"
-                  aria-hidden
-                >
+                <div className="flex size-12 shrink-0 select-none items-center justify-center rounded-full bg-muted text-sm font-semibold tracking-tight text-muted-foreground" aria-hidden>
                   {initialsFromName(ticket.user_name)}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -248,9 +233,16 @@ export function TicketDetailPage() {
                   <h1 className="mt-3 text-2xl font-bold leading-tight tracking-tight">{ticket.title}</h1>
                   <p className="mt-4 whitespace-pre-wrap text-[15px] leading-relaxed text-foreground">{ticket.description}</p>
                   <div className="mt-6 flex flex-wrap gap-8 border-t border-border/70 pt-4 text-muted-foreground">
-                    <button type="button" className="flex items-center gap-2 text-sm disabled:opacity-50" onClick={onToggleLike} disabled={togglingLike}>
-                      <Heart className="size-5" />
-                      <span>{likesCount} curtida{likesCount === 1 ? '' : 's'}</span>
+                    <button
+                      type="button"
+                      className={`flex items-center gap-2 text-sm disabled:opacity-50 cursor-pointer ${liked ? 'text-red-400' : 'text-muted-foreground'}`}
+                      onClick={onToggleLike}
+                      disabled={togglingLike}
+                    >
+                      <Heart className={cn('size-5', liked ? 'fill-current opacity-100' : 'opacity-60')} />
+                      <span>
+                        {likesCount} curtida{likesCount === 1 ? '' : 's'}
+                      </span>
                     </button>
                     <span className="flex items-center gap-2 text-sm">
                       <MessageCircle className="size-5" />
@@ -265,12 +257,7 @@ export function TicketDetailPage() {
               <h2 className="px-1 text-lg font-bold">Comentários</h2>
               <Separator className="my-3" />
               <form onSubmit={onSubmitComment} className="space-y-3 rounded-xl border border-border/70 bg-muted/20 p-4">
-                <Textarea
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  placeholder="Escreva um comentário..."
-                  rows={3}
-                />
+                <Textarea value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Escreva um comentário..." rows={3} />
                 <div className="flex justify-end">
                   <Button type="submit" disabled={sendingComment || !commentText.trim()}>
                     {sendingComment ? 'Enviando...' : 'Comentar'}
@@ -280,9 +267,7 @@ export function TicketDetailPage() {
 
               <div ref={commentsContainerRef} className="mt-4 max-h-104 space-y-3 overflow-y-auto pr-1">
                 {comments.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
-                    Ainda não há comentários neste ticket.
-                  </div>
+                  <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">Ainda não há comentários neste ticket.</div>
                 ) : (
                   comments.map((comment) => (
                     <article key={comment.id} className="rounded-xl border border-border bg-card p-3">
@@ -299,12 +284,8 @@ export function TicketDetailPage() {
                     </article>
                   ))
                 )}
-                {loadingComments ? (
-                  <p className="py-2 text-center text-xs text-muted-foreground">Carregando mais comentários…</p>
-                ) : null}
-                {!hasMoreComments && comments.length > 0 ? (
-                  <p className="py-2 text-center text-xs text-muted-foreground">Fim dos comentários.</p>
-                ) : null}
+                {loadingComments ? <p className="py-2 text-center text-xs text-muted-foreground">Carregando mais comentários…</p> : null}
+                {!hasMoreComments && comments.length > 0 ? <p className="py-2 text-center text-xs text-muted-foreground">Fim dos comentários.</p> : null}
               </div>
             </section>
           </>

@@ -84,7 +84,7 @@ export function HomePage() {
           } catch {
             return [t.id, { liked: false, count: t.likes_count ?? 0 }] as const;
           }
-        })
+        }),
       );
       setLikedByTicket(Object.fromEntries(entries.map(([id, s]) => [id, s.liked])));
       setLikesByTicket(Object.fromEntries(entries.map(([id, s]) => [id, s.count])));
@@ -169,10 +169,7 @@ export function HomePage() {
           tickets.map((t) => (
             <Link key={t.id} to={`/ticket/${t.id}`} className="mb-3 block rounded-xl border border-border/70 bg-card/60 px-4 py-3 shadow-sm transition-colors hover:bg-muted/30">
               <div className="flex gap-3">
-                <div
-                  className="mt-1 flex size-10 shrink-0 select-none items-center justify-center rounded-full bg-muted text-xs font-semibold tracking-tight text-muted-foreground"
-                  aria-hidden
-                >
+                <div className="mt-1 flex size-10 shrink-0 select-none items-center justify-center rounded-full bg-muted text-xs font-semibold tracking-tight text-muted-foreground" aria-hidden>
                   {initialsFromName(t.user_name)}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -189,18 +186,15 @@ export function HomePage() {
                   <div className="mt-3 flex max-w-xs items-center gap-6 text-muted-foreground">
                     <button
                       type="button"
-                      className={cn(
-                        'flex items-center gap-1.5 text-xs',
-                        likedByTicket[t.id] ? 'text-red-400' : 'text-muted-foreground'
-                      )}
+                      className={cn('flex items-center gap-1.5 text-xs', likedByTicket[t.id] ? 'text-red-400' : 'text-muted-foreground')}
                       disabled={pendingLikeByTicket[t.id]}
                       onClick={(e) => void onToggleLike(e, t.id)}
                     >
                       <Heart className={cn('size-4', likedByTicket[t.id] ? 'fill-current opacity-100' : 'opacity-60')} />
                       <span className="opacity-90">{likesByTicket[t.id] ?? t.likes_count ?? 0}</span>
                     </button>
-                    <span className="flex items-center gap-1.5 text-xs">
-                      <MessageCircle className="size-4 opacity-60" />
+                    <span className="flex items-center gap-1.5 text-xs cursor-pointer">
+                      <MessageCircle className={`size-4 opacity-60 ${(t.comments_count ?? 0 > 0) ? 'text-green-400' : 'text-muted-foreground'}`} />
                       <span className="opacity-70">{t.comments_count ?? 0}</span>
                     </span>
                   </div>
