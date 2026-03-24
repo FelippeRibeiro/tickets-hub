@@ -14,3 +14,9 @@ type Ticket struct {
 
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 }
+
+type CreateTicket struct {
+	Title       string `json:"title" db:"title"`
+	Description string `json:"description" db:"description"`
+	TopicID     int    `json:"topic_id" db:"topic_id"`
+}

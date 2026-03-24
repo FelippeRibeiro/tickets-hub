@@ -35,8 +35,7 @@ func (ur *TopicRepository) FindByName(name string) (*model.Topic, error) {
 }
 
 func (ur *TopicRepository) CreateTopic(topic *model.CreateTopic) error {
-	_, err := ur.db.NamedExec("INSERT INTO topics (name) VALUES "+
-		"(:name", topic)
+	_, err := ur.db.NamedExec("INSERT INTO topics (name) VALUES (:name)", topic)
 	if err != nil {
 		return err
 	}

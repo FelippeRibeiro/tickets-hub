@@ -15,7 +15,7 @@ type TopicController struct {
 
 func (uc *TopicController) SetupRoutes(server *http.ServeMux) {
 	server.HandleFunc("GET /api/topics", uc.GetAllTopics)
-	server.Handle("POST /api/topics", middlewares.AuthMiddleware(http.HandlerFunc(uc.GetAllTopics), true))
+	server.Handle("POST /api/topics", middlewares.AuthMiddleware(http.HandlerFunc(uc.CreateTopic), true))
 
 }
 
