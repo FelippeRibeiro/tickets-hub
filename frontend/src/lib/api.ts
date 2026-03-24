@@ -70,6 +70,7 @@ export type Ticket = {
   user_id: number
   topic_id: number
   created_at: string
+  user_name: string
 }
 
 export type TicketWithTopic = Ticket & { topic_name: string }
