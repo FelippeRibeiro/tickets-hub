@@ -32,5 +32,8 @@ type TicketWithUserName struct {
 	UserName string `json:"user_name" db:"user_name"`
 	TopicID  int    `json:"topic_id" db:"topic_id"`
 
+	LikesCount    int `json:"likes_count" db:"likes_count"`
+	CommentsCount int `json:"comments_count" db:"comments_count"`
+
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 }

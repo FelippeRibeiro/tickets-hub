@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/FelippeRibeiro/tickets-hub/internal/model"
@@ -80,7 +79,6 @@ func (uc *UserController) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	//Validate user fields
-	fmt.Println(user)
 	if user.Name == "" || user.Email == "" || user.Password == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": "name or email or password is empty"})
@@ -102,8 +100,35 @@ func (uc *UserController) CreateUser(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
+
+	userSearch, err := uc.userRepository.FindByEmail(user.Email)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	payload, err := utils.GenerateJWTToken(&userSearch)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "token",
+		Value:    payload,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   3 * 60 * 60,
+	})
+
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]string{"message": "user created successfully"})
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "user created successfully",
+		"token":   payload,
+	})
 }
 
 func (uc *UserController) Login(w http.ResponseWriter, r *http.Request) {

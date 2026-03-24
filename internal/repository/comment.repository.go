@@ -11,18 +11,39 @@ type CommentRepository struct {
 
 func NewCommentRepository(db *sqlx.DB) *CommentRepository { return &CommentRepository{db: db} }
 
-func (cr *CommentRepository) Create(userID int, comment *model.CreateComment) error {
-	_, err := cr.db.Exec(`INSERT INTO comments (comment,user_id,ticket_id) VALUES ($1,$2,$3)`, comment.Comment, userID, comment.TicketId)
+func (cr *CommentRepository) Create(userID int, comment *model.CreateComment) (*model.CommentWithUserName, error) {
+	var out model.CommentWithUserName
+	err := cr.db.Get(&out, `
+		INSERT INTO comments (comment, user_id, ticket_id) 
+		VALUES ($1, $2, $3)
+		RETURNING 
+			id,
+			comment,
+			created_at,
+			user_id,
+			ticket_id,
+			(SELECT name FROM users WHERE id = $2) AS user_name
+	`, comment.Comment, userID, comment.TicketId)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return &out, nil
 }
 
-func (cr *CommentRepository) Get(userID int, ticketID string) ([]model.CommentWithUserName, error) {
+func (cr *CommentRepository) ListByTicket(ticketID int, limit int, offset int) ([]model.CommentWithUserName, bool, error) {
 	out := []model.CommentWithUserName{}
-	err := cr.db.Select(&out, `SELECT *,u.name as user_name FROM comments c
-         INNER JOIN users u ON c.user_id = u.id
-         WHERE user_id=$1 AND ticket_id=$2`, userID, ticketID)
-	return out, err
+	err := cr.db.Select(&out, `SELECT c.*, u.name as user_name 
+		FROM comments c
+		INNER JOIN users u ON c.user_id = u.id
+		WHERE c.ticket_id=$1
+		ORDER BY c.created_at ASC
+		LIMIT $2 OFFSET $3`, ticketID, limit+1, offset)
+	if err != nil {
+		return nil, false, err
+	}
+	hasMore := len(out) > limit
+	if hasMore {
+		out = out[:limit]
+	}
+	return out, hasMore, nil
 }

@@ -16,7 +16,14 @@ func NewTicketRepository(db *sqlx.DB) *TicketRepository {
 
 func (tr *TicketRepository) FindByID(id int) (*model.TicketWithUserName, error) {
 	var t model.TicketWithUserName
-	err := tr.db.Get(&t, `SELECT t.*,u.name AS user_name FROM tickets t INNER JOIN users u on t.user_id = u.id WHERE t.id = $1 `, id)
+	err := tr.db.Get(&t, `SELECT 
+		t.*,
+		u.name AS user_name,
+		COALESCE((SELECT COUNT(*) FROM ticket_likes tl WHERE tl.ticket_id = t.id), 0) AS likes_count,
+		COALESCE((SELECT COUNT(*) FROM comments c WHERE c.ticket_id = t.id), 0) AS comments_count
+		FROM tickets t 
+		INNER JOIN users u on t.user_id = u.id 
+		WHERE t.id = $1`, id)
 	if err != nil {
 		return nil, err
 	}
@@ -38,9 +45,24 @@ func (tr *TicketRepository) List(topicID *int) ([]model.TicketWithUserName, erro
 	tickets := []model.TicketWithUserName{}
 	var err error
 	if topicID != nil {
-		err = tr.db.Select(&tickets, `SELECT t.*,u.name AS user_name FROM tickets t INNER JOIN users u on t.user_id = u.id WHERE topic_id = $1 ORDER BY created_at DESC`, *topicID)
+		err = tr.db.Select(&tickets, `SELECT 
+			t.*,
+			u.name AS user_name,
+			COALESCE((SELECT COUNT(*) FROM ticket_likes tl WHERE tl.ticket_id = t.id), 0) AS likes_count,
+			COALESCE((SELECT COUNT(*) FROM comments c WHERE c.ticket_id = t.id), 0) AS comments_count
+			FROM tickets t 
+			INNER JOIN users u on t.user_id = u.id 
+			WHERE topic_id = $1 
+			ORDER BY created_at DESC`, *topicID)
 	} else {
-		err = tr.db.Select(&tickets, `SELECT t.*,u.name AS user_name FROM tickets t INNER JOIN users u on t.user_id = u.id ORDER BY created_at DESC`)
+		err = tr.db.Select(&tickets, `SELECT 
+			t.*,
+			u.name AS user_name,
+			COALESCE((SELECT COUNT(*) FROM ticket_likes tl WHERE tl.ticket_id = t.id), 0) AS likes_count,
+			COALESCE((SELECT COUNT(*) FROM comments c WHERE c.ticket_id = t.id), 0) AS comments_count
+			FROM tickets t 
+			INNER JOIN users u on t.user_id = u.id 
+			ORDER BY created_at DESC`)
 	}
 	return tickets, err
 }
