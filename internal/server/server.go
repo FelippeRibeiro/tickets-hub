@@ -39,14 +39,17 @@ func Server() {
 	userRepository := repository.NewUserRepository(db)
 	topicRepository := repository.NewTopicRepository(db)
 	ticketRepository := repository.NewTicketRepository(db)
+	commentRepository := repository.NewCommentRepository(db)
 
 	userController := controller.NewUserController(userRepository)
 	topicController := controller.NewTopicController(topicRepository)
 	ticketController := controller.NewTicketController(ticketRepository, topicRepository)
+	commentController := controller.NewCommentController(commentRepository, ticketRepository)
 
 	topicController.SetupRoutes(server)
 	userController.SetupRoutes(server)
 	ticketController.SetupRoutes(server)
+	commentController.SetupRoutes(server)
 
 	fmt.Println("Listening on port 8080")
 	if err := http.ListenAndServe(":8080", server); err != nil {
