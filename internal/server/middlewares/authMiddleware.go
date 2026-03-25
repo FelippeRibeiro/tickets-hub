@@ -4,8 +4,14 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/FelippeRibeiro/tickets-hub/internal/database"
+	"github.com/FelippeRibeiro/tickets-hub/internal/repository"
 	"github.com/FelippeRibeiro/tickets-hub/pkg/utils"
+	"github.com/jmoiron/sqlx"
 )
+
+var db *sqlx.DB = database.GetDB()
+var userRepository *repository.UserRepository = repository.NewUserRepository(db)
 
 func AuthMiddleware(next http.Handler, isAdmin bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -19,7 +25,14 @@ func AuthMiddleware(next http.Handler, isAdmin bool) http.Handler {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		if isAdmin && payload.IsAdmin == false {
+
+		user, _ := userRepository.FindByID(payload.UserID)
+		if user == nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		
+		if isAdmin && user.IsAdmin == false {
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}

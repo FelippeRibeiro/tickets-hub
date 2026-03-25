@@ -8,6 +8,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+var DB *sqlx.DB = nil
 func NewDB() (*sqlx.DB, error) {
 
 	DB_USER := os.Getenv("DB_USER")
@@ -25,6 +26,13 @@ func NewDB() (*sqlx.DB, error) {
 
 	db.SetMaxOpenConns(30)
 	db.SetMaxIdleConns(10)
-
+	DB = db
 	return db, nil
+}
+
+func GetDB() *sqlx.DB {
+	if DB == nil {
+			panic("database not initialized")	
+	}
+	return DB
 }

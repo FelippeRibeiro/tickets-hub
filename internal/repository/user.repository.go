@@ -19,25 +19,37 @@ func NewUserRepository(db *sqlx.DB) *UserRepository {
 func (ur *UserRepository) FindAll() ([]model.User, error) {
 	users := []model.User{}
 	err := ur.db.Select(&users, "SELECT * FROM users;")
-	return users, err
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
 }
 
 func (ur *UserRepository) FindByID(id int) (*model.User, error) {
 	user := model.User{}
 	err := ur.db.Get(&user, "SELECT * FROM users WHERE id=$1;", id)
-	return &user, err
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
 }
 
 func (ur *UserRepository) FindByName(name string) (*model.User, error) {
 	user := model.User{}
 	err := ur.db.Get(&user, "SELECT * FROM users WHERE name=$1;", name)
-	return &user, err
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
 }
 
 func (ur *UserRepository) FindByEmail(email string) (model.User, error) {
 	user := model.User{}
 	err := ur.db.Get(&user, "SELECT * FROM users WHERE email= $1;", email)
-	return user, err
+	if err != nil {
+		return model.User{}, err
+	}
+	return user, nil
 }
 
 func (ur *UserRepository) Create(user *model.CreateUser) error {
