@@ -33,6 +33,7 @@ export function ComposeTicketDialog({ topics, onCreated }: Props) {
   const [topicId, setTopicId] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const selectedTopic = topics.find((t) => String(t.id) === topicId)
 
   useEffect(() => {
     if (!open) {
@@ -107,7 +108,9 @@ export function ComposeTicketDialog({ topics, onCreated }: Props) {
                 onValueChange={(v) => setTopicId(v ?? '')}
               >
                 <SelectTrigger className="w-full min-w-0">
-                  <SelectValue placeholder="Selecione um tópico" />
+                  <SelectValue placeholder="Selecione um tópico">
+                    {selectedTopic?.name}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {topics.map((t) => (
