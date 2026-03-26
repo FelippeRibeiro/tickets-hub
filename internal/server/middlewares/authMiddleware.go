@@ -4,14 +4,18 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/FelippeRibeiro/tickets-hub/internal/database"
 	"github.com/FelippeRibeiro/tickets-hub/internal/repository"
 	"github.com/FelippeRibeiro/tickets-hub/pkg/utils"
 	"github.com/jmoiron/sqlx"
 )
 
-var db *sqlx.DB = database.GetDB()
-var userRepository *repository.UserRepository = repository.NewUserRepository(db)
+var DB *sqlx.DB
+var userRepository *repository.UserRepository
+func SetDB(db *sqlx.DB) {
+	DB = db
+	userRepository = repository.NewUserRepository(db)
+}
+
 
 func AuthMiddleware(next http.Handler, isAdmin bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
