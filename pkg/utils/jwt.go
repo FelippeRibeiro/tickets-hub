@@ -23,8 +23,7 @@ func GenerateJWTToken(userSearch *model.User) (string, error) {
 		Name:    userSearch.Name,
 		IsAdmin: userSearch.IsAdmin,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(3 * time.Hour)), // exp
-			IssuedAt:  jwt.NewNumericDate(time.Now()),                    // iat
+			IssuedAt: jwt.NewNumericDate(time.Now()), // iat
 		},
 	}
 
