@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Heart, MessageCircle } from 'lucide-react';
-import { ApiError, createTicketComment, getTicket, getTicketComments, getTicketLikes, likeTicket, type Comment, type TicketWithTopic, unlikeTicket } from '@/lib/api';
+import { ApiError, createTicketComment, getTicket, getTicketComments, getTicketLikes, likeTicket, type Comment, unlikeTicket, type Ticket } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -55,7 +55,7 @@ export function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const ticketId = Number(id);
-  const [ticket, setTicket] = useState<TicketWithTopic | null>(null);
+  const [ticket, setTicket] = useState<Ticket | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState('');
   const [sendingComment, setSendingComment] = useState(false);
@@ -182,7 +182,7 @@ export function TicketDetailPage() {
       const created = await createTicketComment(ticket.id, trimmed);
       setComments((prev) => [...prev, created]);
       setCommentText('');
-      setTicket((prev) =>
+      setTicket((prev: Ticket | null) =>
         prev
           ? {
               ...prev,

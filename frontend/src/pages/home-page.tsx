@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MessageCircle, Heart } from 'lucide-react';
-import { ApiError, getTicketLikes, getTickets, getTopics, likeTicket, unlikeTicket, type TicketWithTopic, type Topic } from '@/lib/api';
+import { ApiError, getTickets, getTopics, likeTicket, unlikeTicket, type Ticket, type Topic } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
 import { ComposeTicketDialog } from '@/components/compose-ticket-dialog';
 import { Badge } from '@/components/ui/badge';
@@ -23,7 +23,7 @@ function formatDate(iso: string) {
 export function HomePage() {
   const { user } = useAuth();
   const [topics, setTopics] = useState<Topic[]>([]);
-  const [tickets, setTickets] = useState<TicketWithTopic[]>([]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [topicFilter, setTopicFilter] = useState<number | null>(null);
   const [likedByTicket, setLikedByTicket] = useState<Record<number, boolean>>({});
   const [likesByTicket, setLikesByTicket] = useState<Record<number, number>>({});
@@ -70,25 +70,12 @@ export function HomePage() {
   }, [loadTickets]);
 
   useEffect(() => {
-    if (tickets.length === 0) {
-      setLikedByTicket({});
-      setLikesByTicket({});
-      return;
-    }
-    void (async () => {
-      const entries = await Promise.all(
-        tickets.map(async (t) => {
-          try {
-            const summary = await getTicketLikes(t.id);
-            return [t.id, summary] as const;
-          } catch {
-            return [t.id, { liked: false, count: t.likes_count ?? 0 }] as const;
-          }
-        }),
-      );
-      setLikedByTicket(Object.fromEntries(entries.map(([id, s]) => [id, s.liked])));
-      setLikesByTicket(Object.fromEntries(entries.map(([id, s]) => [id, s.count])));
-    })();
+    setLikedByTicket(
+      Object.fromEntries(tickets.map((t) => [t.id, Boolean(t.liked)])),
+    );
+    setLikesByTicket(
+      Object.fromEntries(tickets.map((t) => [t.id, t.likes_count ?? 0])),
+    );
   }, [tickets]);
 
   const refreshFeed = useCallback(() => {

@@ -61,6 +61,12 @@ func (tc *TicketController) GetTicket(w http.ResponseWriter, r *http.Request) {
 
 func (tc *TicketController) ListTickets(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	user, ok := r.Context().Value("user").(*utils.Claims)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	userID := &user.UserID
 
 	var topicID *int
 	if raw := r.URL.Query().Get("topic_id"); raw != "" {
@@ -84,7 +90,7 @@ func (tc *TicketController) ListTickets(w http.ResponseWriter, r *http.Request) 
 		topicID = &id
 	}
 
-	tickets, err := tc.ticketRepository.List(topicID)
+	tickets, err := tc.ticketRepository.List(topicID,userID)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})

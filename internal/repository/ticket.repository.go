@@ -54,7 +54,7 @@ func (tr *TicketRepository) Create(userID int, ticket *model.CreateTicket) (*mod
 
 
 
-func (tr *TicketRepository) List(topicID *int) ([]model.TicketWithUserName, error) {
+func (tr *TicketRepository) List(topicID *int, userID *int) ([]model.TicketWithUserName, error) {
 	tickets := []model.TicketWithUserName{}
 	var err error
 	if topicID != nil {
@@ -69,12 +69,13 @@ func (tr *TicketRepository) List(topicID *int) ([]model.TicketWithUserName, erro
 			COALESCE(t.topic_id, 0) AS topic_id,
 			COALESCE(u.name, 'Usuário não encontrado') AS user_name,
 			COALESCE((SELECT COUNT(*) FROM ticket_likes tl WHERE tl.ticket_id = t.id), 0) AS likes_count,
-			COALESCE((SELECT COUNT(*) FROM comments c WHERE c.ticket_id = t.id), 0) AS comments_count
+			COALESCE((SELECT COUNT(*) FROM comments c WHERE c.ticket_id = t.id), 0) AS comments_count,
+			(SELECT COUNT(*) > 0 FROM ticket_likes WHERE user_id = $2 and ticket_id = t.id) AS liked
 			FROM tickets t 
 			INNER JOIN topics tp on tp.id = t.topic_id
 			LEFT JOIN users u on t.user_id = u.id
 			WHERE topic_id = $1 
-			ORDER BY created_at DESC`, *topicID)
+			ORDER BY created_at DESC`, *topicID, *userID)
 	} else {
 		err = tr.db.Select(&tickets, `SELECT 
 			t.id,
@@ -86,11 +87,12 @@ func (tr *TicketRepository) List(topicID *int) ([]model.TicketWithUserName, erro
 			COALESCE(t.user_id, 0) AS user_id,
 			COALESCE(u.name, 'Usuário não encontrado') AS user_name,
 			COALESCE((SELECT COUNT(*) FROM ticket_likes tl WHERE tl.ticket_id = t.id), 0) AS likes_count,
-			COALESCE((SELECT COUNT(*) FROM comments c WHERE c.ticket_id = t.id), 0) AS comments_count
+			COALESCE((SELECT COUNT(*) FROM comments c WHERE c.ticket_id = t.id), 0) AS comments_count,
+			(SELECT COUNT(*) > 0 FROM ticket_likes WHERE user_id = $1 and ticket_id = t.id) AS liked
 			FROM tickets t 
 			INNER JOIN topics tp on tp.id = t.topic_id
 			LEFT JOIN users u on t.user_id = u.id
-			ORDER BY created_at DESC`)
+			ORDER BY created_at DESC`, *userID)
 	}
 	if err != nil {
 		return nil, err

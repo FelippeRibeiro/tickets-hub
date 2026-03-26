@@ -74,9 +74,11 @@ export type Ticket = {
   user_name: string
   likes_count: number
   comments_count: number
+  liked: boolean
+  topic_name: string
 }
 
-export type TicketWithTopic = Ticket & { topic_name: string }
+
 export type Comment = {
   id: number
   comment: string
@@ -163,11 +165,11 @@ export function getUsers() {
 export function getTickets(topicId?: number) {
   const q =
     topicId !== undefined && topicId > 0 ? `?topic_id=${topicId}` : ''
-  return api<TicketWithTopic[]>(`/api/tickets${q}`)
+  return api<Ticket[]>(`/api/tickets${q}`)
 }
 
 export function getTicket(id: number) {
-  return api<TicketWithTopic>(`/api/tickets/${id}`)
+  return api<Ticket>(`/api/tickets/${id}`)
 }
 
 export function createTicket(payload: {
