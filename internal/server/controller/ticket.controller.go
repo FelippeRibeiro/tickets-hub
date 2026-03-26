@@ -31,10 +31,6 @@ func (tc *TicketController) SetupRoutes(server *http.ServeMux) {
 	server.Handle("POST /api/tickets", middlewares.AuthMiddleware(http.HandlerFunc(tc.CreateTicket), false))
 }
 
-type ticketWithTopic struct {
-	model.TicketWithUserName
-	TopicName string `json:"topic_name"`
-}
 
 func (tc *TicketController) GetTicket(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -59,14 +55,8 @@ func (tc *TicketController) GetTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	topic, err := tc.topicRepository.FindByID(ticket.TopicID)
-	topicName := ""
-	if err == nil && topic != nil {
-		topicName = topic.Name
-	}
-
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(ticketWithTopic{TicketWithUserName: *ticket, TopicName: topicName})
+	json.NewEncoder(w).Encode(ticket)
 }
 
 func (tc *TicketController) ListTickets(w http.ResponseWriter, r *http.Request) {
@@ -101,23 +91,8 @@ func (tc *TicketController) ListTickets(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	topics, err := tc.topicRepository.FindAll()
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
-		return
-	}
-	topicNames := make(map[int]string, len(topics))
-	for _, tp := range topics {
-		topicNames[tp.ID] = tp.Name
-	}
-	out := make([]ticketWithTopic, 0, len(tickets))
-	for _, tk := range tickets {
-		out = append(out, ticketWithTopic{TicketWithUserName: tk, TopicName: topicNames[tk.TopicID]})
-	}
-
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(out)
+	json.NewEncoder(w).Encode(tickets)
 }
 
 func (tc *TicketController) CreateTicket(w http.ResponseWriter, r *http.Request) {

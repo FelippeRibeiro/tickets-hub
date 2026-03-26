@@ -17,12 +17,20 @@ func NewTicketRepository(db *sqlx.DB) *TicketRepository {
 func (tr *TicketRepository) FindByID(id int) (*model.TicketWithUserName, error) {
 	var t model.TicketWithUserName
 	err := tr.db.Get(&t, `SELECT 
-		t.*,
-		u.name AS user_name,
+		t.id,
+		t.title,
+		t.description,
+		t.status,
+		t.created_at,
+		tp.name AS topic_name,
+		COALESCE(t.user_id, 0) AS user_id,
+		COALESCE(t.topic_id, 0) AS topic_id,
+		COALESCE(u.name, 'Usuário não encontrado') AS user_name,
 		COALESCE((SELECT COUNT(*) FROM ticket_likes tl WHERE tl.ticket_id = t.id), 0) AS likes_count,
 		COALESCE((SELECT COUNT(*) FROM comments c WHERE c.ticket_id = t.id), 0) AS comments_count
 		FROM tickets t 
-		INNER JOIN users u on t.user_id = u.id 
+		INNER JOIN topics tp on tp.id = t.topic_id
+		LEFT JOIN users u on t.user_id = u.id
 		WHERE t.id = $1`, id)
 	if err != nil {
 		return nil, err
@@ -38,31 +46,54 @@ func (tr *TicketRepository) Create(userID int, ticket *model.CreateTicket) (*mod
 		RETURNING id, title, description, status, user_id, topic_id, created_at`,
 		ticket.Title, ticket.Description, "created", userID, ticket.TopicID,
 	).StructScan(&out)
-	return &out, err
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
+
+
 
 func (tr *TicketRepository) List(topicID *int) ([]model.TicketWithUserName, error) {
 	tickets := []model.TicketWithUserName{}
 	var err error
 	if topicID != nil {
-		err = tr.db.Select(&tickets, `SELECT 
-			t.*,
-			u.name AS user_name,
+		err = tr.db.Select(&tickets, `SELECT
+			t.id,
+			t.title,
+			t.description,
+			t.status,
+			t.created_at,
+			tp.name AS topic_name,
+			COALESCE(t.user_id, 0) AS user_id,
+			COALESCE(t.topic_id, 0) AS topic_id,
+			COALESCE(u.name, 'Usuário não encontrado') AS user_name,
 			COALESCE((SELECT COUNT(*) FROM ticket_likes tl WHERE tl.ticket_id = t.id), 0) AS likes_count,
 			COALESCE((SELECT COUNT(*) FROM comments c WHERE c.ticket_id = t.id), 0) AS comments_count
 			FROM tickets t 
-			INNER JOIN users u on t.user_id = u.id 
+			INNER JOIN topics tp on tp.id = t.topic_id
+			LEFT JOIN users u on t.user_id = u.id
 			WHERE topic_id = $1 
 			ORDER BY created_at DESC`, *topicID)
 	} else {
 		err = tr.db.Select(&tickets, `SELECT 
-			t.*,
-			u.name AS user_name,
+			t.id,
+			t.title,
+			t.description,
+			t.status,
+			t.created_at,
+			tp.name AS topic_name,
+			COALESCE(t.user_id, 0) AS user_id,
+			COALESCE(u.name, 'Usuário não encontrado') AS user_name,
 			COALESCE((SELECT COUNT(*) FROM ticket_likes tl WHERE tl.ticket_id = t.id), 0) AS likes_count,
 			COALESCE((SELECT COUNT(*) FROM comments c WHERE c.ticket_id = t.id), 0) AS comments_count
 			FROM tickets t 
-			INNER JOIN users u on t.user_id = u.id 
+			INNER JOIN topics tp on tp.id = t.topic_id
+			LEFT JOIN users u on t.user_id = u.id
 			ORDER BY created_at DESC`)
 	}
-	return tickets, err
+	if err != nil {
+		return nil, err
+	}
+	return tickets, nil
 }

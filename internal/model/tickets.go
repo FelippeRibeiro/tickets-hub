@@ -1,6 +1,8 @@
 package model
 
-import "time"
+import (
+	"time"
+)
 
 type Ticket struct {
 	ID          int    `json:"id" db:"id"`
@@ -31,6 +33,7 @@ type TicketWithUserName struct {
 	UserID   int    `json:"user_id" db:"user_id"`
 	UserName string `json:"user_name" db:"user_name"`
 	TopicID  int    `json:"topic_id" db:"topic_id"`
+	TopicName string `json:"topic_name" db:"topic_name"`
 
 	LikesCount    int `json:"likes_count" db:"likes_count"`
 	CommentsCount int `json:"comments_count" db:"comments_count"`

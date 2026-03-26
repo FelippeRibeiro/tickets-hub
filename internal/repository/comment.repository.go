@@ -32,9 +32,11 @@ func (cr *CommentRepository) Create(userID int, comment *model.CreateComment) (*
 
 func (cr *CommentRepository) ListByTicket(ticketID int, limit int, offset int) ([]model.CommentWithUserName, bool, error) {
 	out := []model.CommentWithUserName{}
-	err := cr.db.Select(&out, `SELECT c.*, u.name as user_name 
+	err := cr.db.Select(&out, `SELECT c.id, c.comment, c.created_at, 
+	 COALESCE(c.user_id, 0) as user_id, c.ticket_id, 
+	 COALESCE(u.name, 'Usuário não encontrado') as user_name 
 		FROM comments c
-		INNER JOIN users u ON c.user_id = u.id
+		LEFT JOIN users u ON c.user_id = u.id
 		WHERE c.ticket_id=$1
 		ORDER BY c.created_at ASC
 		LIMIT $2 OFFSET $3`, ticketID, limit+1, offset)
