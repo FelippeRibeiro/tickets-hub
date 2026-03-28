@@ -13,6 +13,10 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// authCookieMaxAge é o Max-Age em segundos. Não existe “infinito” em cookies HTTP;
+// um valor alto mantém o token até o utilizador fazer logout ou limpar dados do site.
+const authCookieMaxAge = 10 * 365 * 24 * 60 * 60 // 10 anos
+
 type UserController struct {
 	userRepository *repository.UserRepository
 }
@@ -121,7 +125,7 @@ func (uc *UserController) CreateUser(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   3 * 60 * 60,
+		MaxAge:   authCookieMaxAge,
 	})
 
 	w.WriteHeader(http.StatusCreated)
@@ -171,7 +175,7 @@ func (uc *UserController) Login(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   3 * 60 * 60,
+		MaxAge:   authCookieMaxAge,
 	})
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"token": payload})
