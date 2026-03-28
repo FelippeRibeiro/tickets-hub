@@ -63,6 +63,14 @@ export type Topic = {
   tickets_count?: number
 }
 
+export type TicketAttachment = {
+  id: number
+  original_name: string
+  mime_type: string
+  size_bytes: number
+  url: string
+}
+
 export type Ticket = {
   id: number
   title: string
@@ -76,6 +84,7 @@ export type Ticket = {
   comments_count: number
   liked: boolean
   topic_name: string
+  attachments?: TicketAttachment[]
 }
 
 
@@ -181,6 +190,27 @@ export function createTicket(payload: {
     method: 'POST',
     body: JSON.stringify(payload),
   })
+}
+
+export async function uploadTicketAttachment(ticketId: number, file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  const res = await fetch(`/api/tickets/${ticketId}/attachments`, {
+    method: 'POST',
+    body: form,
+    credentials: 'include',
+  })
+  if (!res.ok) {
+    let message = res.statusText
+    try {
+      const body = (await res.json()) as { error?: string }
+      if (body?.error) message = body.error
+    } catch {
+      /* ignore */
+    }
+    throw new ApiError(message, res.status)
+  }
+  return parseJson<TicketAttachment>(res)
 }
 
 export function getTicketComments(

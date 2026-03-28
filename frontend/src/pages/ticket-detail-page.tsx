@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Heart, MessageCircle } from 'lucide-react';
-import { ApiError, createTicketComment, getTicket, getTicketComments, getTicketLikes, likeTicket, type Comment, unlikeTicket, type Ticket } from '@/lib/api';
+import { ApiError, createTicketComment, getTicket, getTicketComments, getTicketLikes, likeTicket, uploadTicketAttachment, type Comment, unlikeTicket, type Ticket } from '@/lib/api';
+import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -54,6 +55,7 @@ function normalizeCommentsPage(payload: unknown, fallbackLimit = 10, fallbackOff
 export function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const ticketId = Number(id);
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -67,8 +69,14 @@ export function TicketDetailPage() {
   const [togglingLike, setTogglingLike] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const commentsContainerRef = useRef<HTMLDivElement | null>(null);
   const COMMENT_PAGE_SIZE = 10;
+
+  const canUploadAttachments =
+    Boolean(user) && Boolean(ticket) && (user!.is_admin || user!.id === ticket!.user_id);
 
   const commentsCountLabel = useMemo(() => {
     const count = ticket?.comments_count ?? comments.length;
@@ -168,6 +176,25 @@ export function TicketDetailPage() {
     }
   }
 
+  async function onPickAttachmentFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !ticket) {
+      return;
+    }
+    setUploadError(null);
+    setUploadingFile(true);
+    try {
+      await uploadTicketAttachment(ticket.id, file);
+      const refreshed = await getTicket(ticket.id);
+      setTicket(refreshed);
+    } catch (err) {
+      setUploadError(err instanceof ApiError ? err.message : 'Falha ao enviar arquivo');
+    } finally {
+      setUploadingFile(false);
+    }
+  }
+
   async function onSubmitComment(e: React.FormEvent) {
     e.preventDefault();
     if (!ticket || sendingComment) {
@@ -252,6 +279,67 @@ export function TicketDetailPage() {
                 </div>
               </div>
             </article>
+
+            {ticket.attachments && ticket.attachments.length > 0 ? (
+              <section className="mt-6 space-y-3">
+                <h2 className="px-1 text-lg font-bold">Anexos</h2>
+                <div className="grid gap-4 sm:grid-cols-1">
+                  {ticket.attachments.map((a) =>
+                    a.mime_type.startsWith('image/') ? (
+                      <img
+                        key={a.id}
+                        src={a.url}
+                        alt={a.original_name}
+                        className="max-h-96 w-full rounded-lg border border-border object-contain"
+                        loading="lazy"
+                      />
+                    ) : a.mime_type.startsWith('video/') ? (
+                      <video
+                        key={a.id}
+                        src={a.url}
+                        controls
+                        className="max-h-96 w-full rounded-lg border border-border bg-black/40"
+                        preload="metadata"
+                      />
+                    ) : (
+                      <a
+                        key={a.id}
+                        href={a.url}
+                        className="text-sm text-primary underline"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {a.original_name}
+                      </a>
+                    ),
+                  )}
+                </div>
+              </section>
+            ) : null}
+
+            {canUploadAttachments ? (
+              <div className="mt-6 rounded-xl border border-border/70 bg-muted/20 p-4">
+                <p className="mb-2 text-sm font-medium">Adicionar imagem ou vídeo</p>
+                <p className="mb-3 text-xs text-muted-foreground">Até 1 GB por arquivo. Formatos de imagem e vídeo comuns.</p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,video/*"
+                  className="hidden"
+                  onChange={(e) => void onPickAttachmentFile(e)}
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={uploadingFile}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {uploadingFile ? 'Enviando…' : 'Escolher arquivo'}
+                </Button>
+                {uploadError ? <p className="mt-2 text-sm text-destructive">{uploadError}</p> : null}
+              </div>
+            ) : null}
 
             <section className="pt-7">
               <h2 className="px-1 text-lg font-bold">Comentários</h2>

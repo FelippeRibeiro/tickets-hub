@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -14,14 +15,20 @@ import (
 )
 
 type TicketController struct {
-	ticketRepository *repository.TicketRepository
-	topicRepository  *repository.TopicRepository
+	ticketRepository     *repository.TicketRepository
+	topicRepository      *repository.TopicRepository
+	attachmentRepository *repository.AttachmentRepository
 }
 
-func NewTicketController(ticketRepository *repository.TicketRepository, topicRepository *repository.TopicRepository) *TicketController {
+func NewTicketController(
+	ticketRepository *repository.TicketRepository,
+	topicRepository *repository.TopicRepository,
+	attachmentRepository *repository.AttachmentRepository,
+) *TicketController {
 	return &TicketController{
-		ticketRepository: ticketRepository,
-		topicRepository:  topicRepository,
+		ticketRepository:     ticketRepository,
+		topicRepository:      topicRepository,
+		attachmentRepository: attachmentRepository,
 	}
 }
 
@@ -53,6 +60,22 @@ func (tc *TicketController) GetTicket(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
+	}
+
+	if tc.attachmentRepository != nil {
+		rows, aerr := tc.attachmentRepository.ListByTicketID(id)
+		if aerr == nil && len(rows) > 0 {
+			ticket.Attachments = make([]model.TicketAttachment, 0, len(rows))
+			for _, row := range rows {
+				ticket.Attachments = append(ticket.Attachments, model.TicketAttachment{
+					ID:           row.ID,
+					OriginalName: row.OriginalName,
+					MimeType:     row.MimeType,
+					SizeBytes:    row.SizeBytes,
+					URL:          fmt.Sprintf("/api/files/tickets/%d/attachments/%d", id, row.ID),
+				})
+			}
+		}
 	}
 
 	w.WriteHeader(http.StatusOK)

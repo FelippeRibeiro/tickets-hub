@@ -38,6 +38,8 @@ type TicketWithUserName struct {
 	LikesCount    int `json:"likes_count" db:"likes_count"`
 	CommentsCount int `json:"comments_count" db:"comments_count"`
 	Liked         bool `json:"liked" db:"liked"`
-	
+
+	Attachments []TicketAttachment `json:"attachments,omitempty" db:"-"`
+
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 }

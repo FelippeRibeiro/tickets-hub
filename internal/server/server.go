@@ -18,7 +18,41 @@ func Server() {
 		panic(err)
 	}
 	defer db.Close()
+
+	uploadRoot := os.Getenv("UPLOAD_DIR")
+	if uploadRoot == "" {
+		uploadRoot = "./data/uploads"
+	}
+	if err := os.MkdirAll(uploadRoot, 0o755); err != nil {
+		panic(err)
+	}
+
 	server := http.NewServeMux()
+
+	server.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+	})
+
+	userRepository := repository.NewUserRepository(db)
+	topicRepository := repository.NewTopicRepository(db)
+	ticketRepository := repository.NewTicketRepository(db)
+	commentRepository := repository.NewCommentRepository(db)
+	likeRepository := repository.NewLikeRepository(db)
+	attachmentRepository := repository.NewAttachmentRepository(db)
+
+	userController := controller.NewUserController(userRepository)
+	topicController := controller.NewTopicController(topicRepository)
+	ticketController := controller.NewTicketController(ticketRepository, topicRepository, attachmentRepository)
+	commentController := controller.NewCommentController(commentRepository, ticketRepository)
+	likeController := controller.NewLikeController(likeRepository, ticketRepository)
+	attachmentController := controller.NewAttachmentController(ticketRepository, attachmentRepository, uploadRoot)
+
+	topicController.SetupRoutes(server)
+	userController.SetupRoutes(server)
+	ticketController.SetupRoutes(server)
+	attachmentController.SetupRoutes(server)
+	commentController.SetupRoutes(server)
+	likeController.SetupRoutes(server)
 
 	staticDir := "./frontend/dist"
 	server.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -31,28 +65,6 @@ func Server() {
 		}
 		http.FileServer(http.Dir(staticDir)).ServeHTTP(w, r)
 	})
-
-	server.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]bool{"ok": true})
-	})
-
-	userRepository := repository.NewUserRepository(db)
-	topicRepository := repository.NewTopicRepository(db)
-	ticketRepository := repository.NewTicketRepository(db)
-	commentRepository := repository.NewCommentRepository(db)
-	likeRepository := repository.NewLikeRepository(db)
-
-	userController := controller.NewUserController(userRepository)
-	topicController := controller.NewTopicController(topicRepository)
-	ticketController := controller.NewTicketController(ticketRepository, topicRepository)
-	commentController := controller.NewCommentController(commentRepository, ticketRepository)
-	likeController := controller.NewLikeController(likeRepository, ticketRepository)
-
-	topicController.SetupRoutes(server)
-	userController.SetupRoutes(server)
-	ticketController.SetupRoutes(server)
-	commentController.SetupRoutes(server)
-	likeController.SetupRoutes(server)
 
 	fmt.Println("Listening on port 8080")
 	if err := http.ListenAndServe(":8080", server); err != nil {

@@ -78,6 +78,18 @@ CREATE TABLE IF NOT EXISTS ticket_likes (
         ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS ticket_attachments (
+    id SERIAL PRIMARY KEY,
+    ticket_id INT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+    original_name TEXT NOT NULL,
+    stored_path TEXT NOT NULL,
+    mime_type TEXT NOT NULL,
+    size_bytes BIGINT NOT NULL CHECK (size_bytes >= 0),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_ticket_attachments_ticket_id ON ticket_attachments(ticket_id);
+
 
 -- DELETE FROM users WHERE name = '';
 -- DELETE FROM users WHERE email = '';
