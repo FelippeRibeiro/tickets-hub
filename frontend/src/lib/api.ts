@@ -23,11 +23,15 @@ export async function api<T>(
   path: string,
   init?: RequestInit
 ): Promise<T> {
+  const isFormData =
+    typeof FormData !== 'undefined' && init?.body instanceof FormData
   const res = await fetch(path, {
     ...init,
     credentials: 'include',
     headers: {
-      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(init?.body && !isFormData
+        ? { 'Content-Type': 'application/json' }
+        : {}),
       ...init?.headers,
     },
   })
@@ -95,6 +99,7 @@ export type Comment = {
   user_id: number
   ticket_id: number
   user_name: string
+  attachments?: TicketAttachment[]
 }
 export type PaginatedComments = {
   items: Comment[]
@@ -185,10 +190,25 @@ export function createTicket(payload: {
   title: string
   description: string
   topic_id: number
+  files?: File[]
 }) {
+  if (payload.files && payload.files.length > 0) {
+    const form = new FormData()
+    form.append('title', payload.title)
+    form.append('description', payload.description)
+    form.append('topic_id', String(payload.topic_id))
+    for (const f of payload.files) {
+      form.append('files', f)
+    }
+    return api<Ticket>('/api/tickets', { method: 'POST', body: form })
+  }
   return api<Ticket>('/api/tickets', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      title: payload.title,
+      description: payload.description,
+      topic_id: payload.topic_id,
+    }),
   })
 }
 
@@ -224,7 +244,22 @@ export function getTicketComments(
   )
 }
 
-export function createTicketComment(ticketId: number, comment: string) {
+export function createTicketComment(
+  ticketId: number,
+  comment: string,
+  files?: File[]
+) {
+  if (files && files.length > 0) {
+    const form = new FormData()
+    form.append('comment', comment)
+    for (const f of files) {
+      form.append('files', f)
+    }
+    return api<Comment>(`/api/tickets/${ticketId}/comments`, {
+      method: 'POST',
+      body: form,
+    })
+  }
   return api<Comment>(`/api/tickets/${ticketId}/comments`, {
     method: 'POST',
     body: JSON.stringify({ comment }),

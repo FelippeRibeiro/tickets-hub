@@ -39,13 +39,14 @@ func Server() {
 	commentRepository := repository.NewCommentRepository(db)
 	likeRepository := repository.NewLikeRepository(db)
 	attachmentRepository := repository.NewAttachmentRepository(db)
+	commentAttachmentRepository := repository.NewCommentAttachmentRepository(db)
 
 	userController := controller.NewUserController(userRepository)
 	topicController := controller.NewTopicController(topicRepository)
-	ticketController := controller.NewTicketController(ticketRepository, topicRepository, attachmentRepository)
-	commentController := controller.NewCommentController(commentRepository, ticketRepository)
+	ticketController := controller.NewTicketController(ticketRepository, topicRepository, attachmentRepository, uploadRoot)
+	commentController := controller.NewCommentController(commentRepository, ticketRepository, commentAttachmentRepository, uploadRoot)
 	likeController := controller.NewLikeController(likeRepository, ticketRepository)
-	attachmentController := controller.NewAttachmentController(ticketRepository, attachmentRepository, uploadRoot)
+	attachmentController := controller.NewAttachmentController(ticketRepository, attachmentRepository, commentAttachmentRepository, uploadRoot)
 
 	topicController.SetupRoutes(server)
 	userController.SetupRoutes(server)

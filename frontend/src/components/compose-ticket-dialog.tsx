@@ -31,6 +31,7 @@ export function ComposeTicketDialog({ topics, onCreated }: Props) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [topicId, setTopicId] = useState<string>('')
+  const [files, setFiles] = useState<File[]>([])
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const selectedTopic = topics.find((t) => String(t.id) === topicId)
@@ -52,10 +53,16 @@ export function ComposeTicketDialog({ topics, onCreated }: Props) {
     setError(null)
     setPending(true)
     try {
-      await createTicket({ title, description, topic_id: id })
+      await createTicket({
+        title,
+        description,
+        topic_id: id,
+        files: files.length > 0 ? files : undefined,
+      })
       setTitle('')
       setDescription('')
       setTopicId('')
+      setFiles([])
       setOpen(false)
       onCreated()
     } catch (err) {
@@ -132,6 +139,29 @@ export function ComposeTicketDialog({ topics, onCreated }: Props) {
                 required
                 className="min-h-32 resize-y"
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ticket-files">Anexos (opcional)</Label>
+              <p className="text-xs text-muted-foreground">
+                Imagens e vídeos no envio; até 1 GB por arquivo.
+              </p>
+              <Input
+                id="ticket-files"
+                type="file"
+                accept="image/*,video/*"
+                multiple
+                className="cursor-pointer"
+                onChange={(e) => {
+                  const list = e.target.files
+                  setFiles(list ? Array.from(list) : [])
+                }}
+              />
+              {files.length > 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  {files.length}{' '}
+                  {files.length === 1 ? 'arquivo selecionado' : 'arquivos selecionados'}
+                </p>
+              ) : null}
             </div>
           </div>
           <DialogFooter className="border-0 bg-transparent p-0 pt-2 sm:justify-end">

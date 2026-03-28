@@ -1,13 +1,10 @@
 package controller
 
 import (
-	"crypto/rand"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -17,40 +14,35 @@ import (
 	"github.com/FelippeRibeiro/tickets-hub/internal/model"
 	"github.com/FelippeRibeiro/tickets-hub/internal/repository"
 	"github.com/FelippeRibeiro/tickets-hub/internal/server/middlewares"
+	"github.com/FelippeRibeiro/tickets-hub/internal/server/upload"
 	"github.com/FelippeRibeiro/tickets-hub/pkg/utils"
 )
 
-const maxAttachmentBytes = 1 << 30 // 1 GiB
-
 type AttachmentController struct {
-	ticketRepo      *repository.TicketRepository
-	attachmentRepo  *repository.AttachmentRepository
-	uploadRoot      string
+	ticketRepo            *repository.TicketRepository
+	attachmentRepo        *repository.AttachmentRepository
+	commentAttachmentRepo *repository.CommentAttachmentRepository
+	uploadRoot            string
 }
 
 func NewAttachmentController(
 	ticketRepo *repository.TicketRepository,
 	attachmentRepo *repository.AttachmentRepository,
+	commentAttachmentRepo *repository.CommentAttachmentRepository,
 	uploadRoot string,
 ) *AttachmentController {
 	return &AttachmentController{
-		ticketRepo:     ticketRepo,
-		attachmentRepo: attachmentRepo,
-		uploadRoot:     uploadRoot,
+		ticketRepo:            ticketRepo,
+		attachmentRepo:        attachmentRepo,
+		commentAttachmentRepo: commentAttachmentRepo,
+		uploadRoot:            uploadRoot,
 	}
 }
 
 func (ac *AttachmentController) SetupRoutes(server *http.ServeMux) {
 	server.Handle("POST /api/tickets/{id}/attachments", middlewares.AuthMiddleware(http.HandlerFunc(ac.Upload), false))
 	server.Handle("GET /api/files/tickets/{ticket_id}/attachments/{attachment_id}", http.HandlerFunc(ac.ServeFile))
-}
-
-func allowedMime(mime string) bool {
-	mime = strings.TrimSpace(strings.ToLower(mime))
-	if mime == "" {
-		return false
-	}
-	return strings.HasPrefix(mime, "image/") || strings.HasPrefix(mime, "video/")
+	server.Handle("GET /api/files/comments/{comment_id}/attachments/{attachment_id}", http.HandlerFunc(ac.ServeCommentFile))
 }
 
 func (ac *AttachmentController) Upload(w http.ResponseWriter, r *http.Request) {
@@ -87,7 +79,7 @@ func (ac *AttachmentController) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	r.Body = http.MaxBytesReader(w, r.Body, maxAttachmentBytes+1)
+	r.Body = http.MaxBytesReader(w, r.Body, upload.MaxMediaBytes+1)
 	if err := r.ParseMultipartForm(64 << 20); err != nil {
 		var maxErr *http.MaxBytesError
 		if errors.As(err, &maxErr) {
@@ -108,80 +100,26 @@ func (ac *AttachmentController) Upload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	ext := strings.ToLower(filepath.Ext(header.Filename))
-	if ext == "" {
-		ext = ".bin"
-	}
-
-	token := make([]byte, 16)
-	if _, err := rand.Read(token); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
-		return
-	}
-	storedName := hex.EncodeToString(token) + ext
-	relPath := filepath.Join("tickets", strconv.Itoa(ticketID), storedName)
-	absDir := filepath.Join(ac.uploadRoot, "tickets", strconv.Itoa(ticketID))
-	if err := os.MkdirAll(absDir, 0o755); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
-		return
-	}
-	absFile := filepath.Join(absDir, storedName)
-
-	dst, err := os.Create(absFile)
+	relPath, mime, written, err := upload.SaveMedia(ac.uploadRoot, "tickets", ticketID, file, header)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
-		return
-	}
-
-	written, err := io.Copy(dst, io.LimitReader(file, maxAttachmentBytes+1))
-	if cerr := dst.Close(); cerr != nil && err == nil {
-		err = cerr
-	}
-	if err != nil {
-		_ = os.Remove(absFile)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
-		return
-	}
-	if written > maxAttachmentBytes {
-		_ = os.Remove(absFile)
-		w.WriteHeader(http.StatusRequestEntityTooLarge)
-		json.NewEncoder(w).Encode(map[string]string{"error": "file too large (max 1GB)"})
-		return
-	}
-
-	readBuf := make([]byte, 512)
-	fh, err := os.Open(absFile)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
-		return
-	}
-	n, _ := fh.Read(readBuf)
-	_ = fh.Close()
-	mime := http.DetectContentType(readBuf[:n])
-	if header.Header.Get("Content-Type") != "" {
-		declared := strings.TrimSpace(strings.ToLower(header.Header.Get("Content-Type")))
-		if i := strings.Index(declared, ";"); i >= 0 {
-			declared = declared[:i]
+		if strings.Contains(err.Error(), "too large") {
+			w.WriteHeader(http.StatusRequestEntityTooLarge)
+			json.NewEncoder(w).Encode(map[string]string{"error": "file too large (max 1GB)"})
+			return
 		}
-		if strings.HasPrefix(declared, "image/") || strings.HasPrefix(declared, "video/") {
-			mime = declared
+		if strings.Contains(err.Error(), "only image and video") {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "only image and video files are allowed"})
+			return
 		}
-	}
-	if !allowedMime(mime) {
-		_ = os.Remove(absFile)
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "only image and video files are allowed"})
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
 
-	attID, err := ac.attachmentRepo.Insert(ticketID, header.Filename, filepath.ToSlash(relPath), mime, written)
+	attID, err := ac.attachmentRepo.Insert(ticketID, header.Filename, relPath, mime, written)
 	if err != nil {
-		_ = os.Remove(absFile)
+		_ = os.Remove(filepath.Join(ac.uploadRoot, filepath.FromSlash(relPath)))
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
@@ -216,6 +154,59 @@ func (ac *AttachmentController) ServeFile(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if row.TicketID != ticketID {
+		http.NotFound(w, r)
+		return
+	}
+
+	full := filepath.Join(ac.uploadRoot, filepath.FromSlash(row.StoredPath))
+	full = filepath.Clean(full)
+	root := filepath.Clean(ac.uploadRoot)
+	rel, relErr := filepath.Rel(root, full)
+	if relErr != nil || strings.HasPrefix(rel, "..") {
+		http.NotFound(w, r)
+		return
+	}
+
+	f, err := os.Open(full)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	defer f.Close()
+
+	st, err := f.Stat()
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	w.Header().Set("Content-Type", row.MimeType)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	http.ServeContent(w, r, row.OriginalName, st.ModTime(), f)
+}
+
+func (ac *AttachmentController) ServeCommentFile(w http.ResponseWriter, r *http.Request) {
+	if ac.commentAttachmentRepo == nil {
+		http.NotFound(w, r)
+		return
+	}
+	commentID, err := strconv.Atoi(r.PathValue("comment_id"))
+	if err != nil || commentID <= 0 {
+		http.NotFound(w, r)
+		return
+	}
+	attachmentID, err := strconv.Atoi(r.PathValue("attachment_id"))
+	if err != nil || attachmentID <= 0 {
+		http.NotFound(w, r)
+		return
+	}
+
+	row, err := ac.commentAttachmentRepo.FindByID(attachmentID)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if row.CommentID != commentID {
 		http.NotFound(w, r)
 		return
 	}

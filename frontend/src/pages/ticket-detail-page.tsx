@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Heart, MessageCircle } from 'lucide-react';
-import { ApiError, createTicketComment, getTicket, getTicketComments, getTicketLikes, likeTicket, uploadTicketAttachment, type Comment, unlikeTicket, type Ticket } from '@/lib/api';
+import { ApiError, createTicketComment, getTicket, getTicketComments, getTicketLikes, likeTicket, uploadTicketAttachment, type Comment, unlikeTicket, type Ticket, type TicketAttachment } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -60,6 +60,7 @@ export function TicketDetailPage() {
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState('');
+  const [commentFiles, setCommentFiles] = useState<File[]>([]);
   const [sendingComment, setSendingComment] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
   const [hasMoreComments, setHasMoreComments] = useState(true);
@@ -72,6 +73,7 @@ export function TicketDetailPage() {
   const [uploadingFile, setUploadingFile] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const commentFileInputRef = useRef<HTMLInputElement | null>(null);
   const commentsContainerRef = useRef<HTMLDivElement | null>(null);
   const COMMENT_PAGE_SIZE = 10;
 
@@ -201,14 +203,22 @@ export function TicketDetailPage() {
       return;
     }
     const trimmed = commentText.trim();
-    if (!trimmed) {
+    if (!trimmed && commentFiles.length === 0) {
       return;
     }
     setSendingComment(true);
     try {
-      const created = await createTicketComment(ticket.id, trimmed);
+      const created = await createTicketComment(
+        ticket.id,
+        trimmed,
+        commentFiles.length > 0 ? commentFiles : undefined,
+      );
       setComments((prev) => [...prev, created]);
       setCommentText('');
+      setCommentFiles([]);
+      if (commentFileInputRef.current) {
+        commentFileInputRef.current.value = '';
+      }
       setTicket((prev: Ticket | null) =>
         prev
           ? {
@@ -222,6 +232,42 @@ export function TicketDetailPage() {
     } finally {
       setSendingComment(false);
     }
+  }
+
+  function renderAttachmentMedia(a: TicketAttachment) {
+    if (a.mime_type.startsWith('image/')) {
+      return (
+        <img
+          key={a.id}
+          src={a.url}
+          alt={a.original_name}
+          className="max-h-72 w-full rounded-lg border border-border object-contain"
+          loading="lazy"
+        />
+      );
+    }
+    if (a.mime_type.startsWith('video/')) {
+      return (
+        <video
+          key={a.id}
+          src={a.url}
+          controls
+          className="max-h-72 w-full rounded-lg border border-border bg-black/40"
+          preload="metadata"
+        />
+      );
+    }
+    return (
+      <a
+        key={a.id}
+        href={a.url}
+        className="text-sm text-primary underline"
+        target="_blank"
+        rel="noreferrer"
+      >
+        {a.original_name}
+      </a>
+    );
   }
 
   return (
@@ -358,9 +404,34 @@ export function TicketDetailPage() {
               <Separator className="my-3" />
               {user ? (
                 <form onSubmit={onSubmitComment} className="space-y-3 rounded-xl border border-border/70 bg-muted/20 p-4">
-                  <Textarea value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Escreva um comentário..." rows={3} />
+                  <Textarea value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Escreva um comentário (ou só anexe mídia)..." rows={3} />
+                  <div className="flex flex-wrap items-center gap-3">
+                    <input
+                      ref={commentFileInputRef}
+                      type="file"
+                      accept="image/*,video/*"
+                      multiple
+                      className="max-w-full text-sm file:mr-2 file:rounded-md file:border-0 file:bg-secondary file:px-2 file:py-1 file:text-sm"
+                      onChange={(e) => {
+                        const list = e.target.files;
+                        setCommentFiles(list ? Array.from(list) : []);
+                      }}
+                    />
+                    {commentFiles.length > 0 ? (
+                      <span className="text-xs text-muted-foreground">
+                        {commentFiles.length}{' '}
+                        {commentFiles.length === 1 ? 'arquivo' : 'arquivos'}
+                      </span>
+                    ) : null}
+                  </div>
                   <div className="flex justify-end">
-                    <Button type="submit" disabled={sendingComment || !commentText.trim()}>
+                    <Button
+                      type="submit"
+                      disabled={
+                        sendingComment ||
+                        (!commentText.trim() && commentFiles.length === 0)
+                      }
+                    >
                       {sendingComment ? 'Enviando...' : 'Comentar'}
                     </Button>
                   </div>
@@ -389,7 +460,14 @@ export function TicketDetailPage() {
                           <p className="text-xs text-muted-foreground">{formatDate(comment.created_at)}</p>
                         </div>
                       </div>
-                      <p className="whitespace-pre-wrap text-sm leading-relaxed">{comment.comment}</p>
+                      {comment.comment ? (
+                        <p className="whitespace-pre-wrap text-sm leading-relaxed">{comment.comment}</p>
+                      ) : null}
+                      {comment.attachments && comment.attachments.length > 0 ? (
+                        <div className="mt-3 grid gap-3">
+                          {comment.attachments.map((a) => renderAttachmentMedia(a))}
+                        </div>
+                      ) : null}
                     </article>
                   ))
                 )}

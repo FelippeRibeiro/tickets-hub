@@ -17,6 +17,8 @@ type CommentWithUserName struct {
 	UserId    int       `json:"user_id" db:"user_id"`
 	TicketId  int       `json:"ticket_id" db:"ticket_id"`
 	UserName  string    `json:"user_name" db:"user_name"`
+
+	Attachments []TicketAttachment `json:"attachments,omitempty" db:"-"`
 }
 
 type CreateComment struct {
