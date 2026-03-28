@@ -71,12 +71,8 @@ export function HomePage() {
   }, [loadTickets]);
 
   useEffect(() => {
-    setLikedByTicket(
-      Object.fromEntries(tickets.map((t) => [t.id, Boolean(t.liked)])),
-    );
-    setLikesByTicket(
-      Object.fromEntries(tickets.map((t) => [t.id, t.likes_count ?? 0])),
-    );
+    setLikedByTicket(Object.fromEntries(tickets.map((t) => [t.id, Boolean(t.liked)])));
+    setLikesByTicket(Object.fromEntries(tickets.map((t) => [t.id, t.likes_count ?? 0])));
   }, [tickets]);
 
   const refreshFeed = useCallback(() => {
@@ -134,7 +130,7 @@ export function HomePage() {
               ))}
             </div>
           </div>
-          {user && !user.is_admin ? <CreateTopicDialog onCreated={() => void loadTopics()} /> : null}
+          {user ? <CreateTopicDialog onCreated={() => void loadTopics()} /> : null}
         </div>
       </div>
 
