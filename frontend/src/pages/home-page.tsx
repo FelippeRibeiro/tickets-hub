@@ -118,8 +118,8 @@ export function HomePage() {
 
       <div className="border-b border-border/70 px-4 py-3">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="min-w-0 flex-1 overflow-x-auto pb-1">
-            <div className="flex w-max min-w-full gap-2.5">
+          <div className="min-w-0 flex-1 overflow-x-auto scroll-smooth scrollbar-x-hover">
+            <div className="flex w-max min-w-full gap-2.5 pb-0.5 pr-1">
               <Button type="button" size="sm" variant={topicFilter === null ? 'secondary' : 'ghost'} className={cn('shrink-0 rounded-full')} onClick={() => setTopicFilter(null)}>
                 Todos
               </Button>

@@ -83,6 +83,42 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+@layer utilities {
+  /* Barra horizontal fina; só aparece no hover do container (Firefox + WebKit) */
+  .scrollbar-x-hover {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+  .scrollbar-x-hover:hover {
+    scrollbar-color: oklch(0.52 0 0 / 0.45) transparent;
+  }
+  .scrollbar-x-hover::-webkit-scrollbar {
+    height: 6px;
+  }
+  .scrollbar-x-hover::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-x-hover::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background-color: transparent;
+  }
+  .scrollbar-x-hover:hover::-webkit-scrollbar-thumb {
+    background-color: oklch(0.52 0 0 / 0.45);
+  }
+  .scrollbar-x-hover:hover::-webkit-scrollbar-thumb:hover {
+    background-color: oklch(0.62 0 0 / 0.55);
+  }
+  /* Sem hover (toque): barra sempre um pouco visível para poder perceber o scroll */
+  @media (hover: none) {
+    .scrollbar-x-hover {
+      scrollbar-color: oklch(0.52 0 0 / 0.35) transparent;
+    }
+    .scrollbar-x-hover::-webkit-scrollbar-thumb {
+      background-color: oklch(0.52 0 0 / 0.35);
+    }
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
