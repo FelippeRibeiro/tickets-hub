@@ -130,12 +130,6 @@ func (tc *TicketController) CreateTicket(w http.ResponseWriter, r *http.Request)
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-	if user.IsAdmin {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusForbidden)
-		json.NewEncoder(w).Encode(map[string]string{"error": "admins cannot create tickets"})
-		return
-	}
 
 	var body model.CreateTicket
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {

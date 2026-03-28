@@ -116,11 +116,7 @@ export function HomePage() {
             <h1 className="text-xl font-bold tracking-tight">Feed</h1>
             <p className="mt-0.5 text-sm text-muted-foreground">Últimos tickets da comunidade</p>
           </div>
-          {user && !user.is_admin ? (
-            <ComposeTicketDialog topics={topics} onCreated={refreshFeed} />
-          ) : user?.is_admin ? (
-            <p className="max-w-40 text-right text-xs text-muted-foreground">Contas admin não abrem tickets pelo app.</p>
-          ) : null}
+          {user ? <ComposeTicketDialog topics={topics} onCreated={refreshFeed} /> : null}
         </div>
       </header>
 
