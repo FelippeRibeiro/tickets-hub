@@ -129,7 +129,7 @@ export function AdminPage() {
         <CardHeader>
           <CardTitle>Novo tópico</CardTitle>
           <CardDescription>
-            Categorias usadas nos tickets (POST /api/topics).
+            Categorias usadas nos tickets. Qualquer usuário autenticado pode criar tópicos (POST /api/topics).
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -4,6 +4,7 @@ import { MessageCircle, Heart } from 'lucide-react';
 import { ApiError, getTickets, getTopics, likeTicket, unlikeTicket, type Ticket, type Topic } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
 import { ComposeTicketDialog } from '@/components/compose-ticket-dialog';
+import { CreateTopicDialog } from '@/components/create-topic-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -124,17 +125,20 @@ export function HomePage() {
       </header>
 
       <div className="border-b border-border/70 px-4 py-3">
-        <div className="w-full overflow-x-auto pb-1">
-          <div className="flex w-max min-w-full gap-2.5">
-            <Button type="button" size="sm" variant={topicFilter === null ? 'secondary' : 'ghost'} className={cn('shrink-0 rounded-full')} onClick={() => setTopicFilter(null)}>
-              Todos
-            </Button>
-            {topics.map((t) => (
-              <Button key={t.id} type="button" size="sm" variant={topicFilter === t.id ? 'secondary' : 'ghost'} className="shrink-0 rounded-full" onClick={() => setTopicFilter(t.id)}>
-                {t.name || `Tópico ${t.id}`}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="min-w-0 flex-1 overflow-x-auto pb-1">
+            <div className="flex w-max min-w-full gap-2.5">
+              <Button type="button" size="sm" variant={topicFilter === null ? 'secondary' : 'ghost'} className={cn('shrink-0 rounded-full')} onClick={() => setTopicFilter(null)}>
+                Todos
               </Button>
-            ))}
+              {topics.map((t) => (
+                <Button key={t.id} type="button" size="sm" variant={topicFilter === t.id ? 'secondary' : 'ghost'} className="shrink-0 rounded-full" onClick={() => setTopicFilter(t.id)}>
+                  {t.name || `Tópico ${t.id}`}
+                </Button>
+              ))}
+            </div>
           </div>
+          {user && !user.is_admin ? <CreateTopicDialog onCreated={() => void loadTopics()} /> : null}
         </div>
       </div>
 

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/FelippeRibeiro/tickets-hub/internal/model"
 	"github.com/FelippeRibeiro/tickets-hub/internal/repository"
@@ -18,7 +19,7 @@ type TopicController struct {
 
 func (uc *TopicController) SetupRoutes(server *http.ServeMux) {
 	server.HandleFunc("GET /api/topics", uc.GetAllTopics)
-	server.Handle("POST /api/topics", middlewares.AuthMiddleware(http.HandlerFunc(uc.CreateTopic), true))
+	server.Handle("POST /api/topics", middlewares.AuthMiddleware(http.HandlerFunc(uc.CreateTopic), false))
 	server.Handle("DELETE /api/topics/{id}", middlewares.AuthMiddleware(http.HandlerFunc(uc.DeleteTopic), true))
 
 }
@@ -47,14 +48,28 @@ func (uc *TopicController) CreateTopic(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
+	topic.Name = strings.TrimSpace(topic.Name)
 	if topic.Name == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": "name is empty"})
 		return
 	}
 
+	existingTopic, err := uc.topicRepository.FindByNameFold(topic.Name)
+	if existingTopic != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "topic already exists"})
+		return
+	}
+
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
 	//Creating topic
-	err := uc.topicRepository.CreateTopic(&topic)
+	err = uc.topicRepository.CreateTopic(&topic)
 	if err != nil {
 		//Validate errors and throw custom errors
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})

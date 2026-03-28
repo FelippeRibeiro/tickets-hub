@@ -38,7 +38,7 @@ func (ur *TopicRepository) FindByID(id int) (*model.Topic, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &topic, err
+	return &topic, nil
 }
 
 func (ur *TopicRepository) FindByName(name string) (*model.Topic, error) {
@@ -47,7 +47,19 @@ func (ur *TopicRepository) FindByName(name string) (*model.Topic, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &topic, err
+	return &topic, nil
+}
+
+// FindByNameFold retorna um tópico cujo nome coincide ignorando maiúsculas/minúsculas e espaços nas pontas.
+func (ur *TopicRepository) FindByNameFold(name string) (*model.Topic, error) {
+	topic := model.Topic{}
+	err := ur.db.Get(&topic, `
+		SELECT * FROM topics
+		WHERE LOWER(TRIM(name)) = LOWER(TRIM($1))`, name)
+	if err != nil {
+		return nil, err
+	}
+	return &topic, nil
 }
 
 func (ur *TopicRepository) CreateTopic(topic *model.CreateTopic) error {
