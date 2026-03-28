@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from '@/contexts/auth-context'
 import { AppShell } from '@/components/app-shell'
 import { ProtectedRoute } from '@/components/protected-route'
+import { TicketLayout } from '@/components/ticket-layout'
 import { AdminPage } from '@/pages/admin-page'
 import { HomePage } from '@/pages/home-page'
 import { LoginPage } from '@/pages/login-page'
@@ -21,6 +22,9 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/cadastro" element={<RegisterPage />} />
+      <Route element={<TicketLayout />}>
+        <Route path="/ticket/:id" element={<TicketDetailPage />} />
+      </Route>
       <Route
         element={
           <ProtectedRoute>
@@ -29,7 +33,6 @@ export default function App() {
         }
       >
         <Route path="/" element={<HomePage />} />
-        <Route path="/ticket/:id" element={<TicketDetailPage />} />
         <Route path="/admin" element={<AdminPageWrapper />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -155,7 +155,7 @@ export function TicketDetailPage() {
   }, [ticket, hasMoreComments, loadingComments, nextOffset]);
 
   async function onToggleLike() {
-    if (!ticket || togglingLike) {
+    if (!user || !ticket || togglingLike) {
       return;
     }
     setTogglingLike(true);
@@ -230,7 +230,10 @@ export function TicketDetailPage() {
         <Button type="button" variant="ghost" size="icon-sm" aria-label="Voltar" onClick={() => navigate(-1)}>
           <ArrowLeft className="size-4" />
         </Button>
-        <Link to="/" className="text-sm font-semibold hover:underline">
+        <Link
+          to={user ? '/' : '/login'}
+          className="text-sm font-semibold hover:underline"
+        >
           Ticket
         </Link>
       </header>
@@ -260,17 +263,26 @@ export function TicketDetailPage() {
                   <h1 className="mt-3 text-2xl font-bold leading-tight tracking-tight">{ticket.title}</h1>
                   <p className="mt-4 whitespace-pre-wrap text-[15px] leading-relaxed text-foreground">{ticket.description}</p>
                   <div className="mt-6 flex flex-wrap gap-8 border-t border-border/70 pt-4 text-muted-foreground">
-                    <button
-                      type="button"
-                      className={`flex items-center gap-2 text-sm disabled:opacity-50 cursor-pointer ${liked ? 'text-red-400' : 'text-muted-foreground'}`}
-                      onClick={onToggleLike}
-                      disabled={togglingLike}
-                    >
-                      <Heart className={cn('size-5', liked ? 'fill-current opacity-100' : 'opacity-60')} />
-                      <span>
-                        {likesCount} curtida{likesCount === 1 ? '' : 's'}
+                    {user ? (
+                      <button
+                        type="button"
+                        className={`flex items-center gap-2 text-sm disabled:opacity-50 cursor-pointer ${liked ? 'text-red-400' : 'text-muted-foreground'}`}
+                        onClick={onToggleLike}
+                        disabled={togglingLike}
+                      >
+                        <Heart className={cn('size-5', liked ? 'fill-current opacity-100' : 'opacity-60')} />
+                        <span>
+                          {likesCount} curtida{likesCount === 1 ? '' : 's'}
+                        </span>
+                      </button>
+                    ) : (
+                      <span className="flex items-center gap-2 text-sm">
+                        <Heart className="size-5 opacity-60" />
+                        <span>
+                          {likesCount} curtida{likesCount === 1 ? '' : 's'}
+                        </span>
                       </span>
-                    </button>
+                    )}
                     <span className="flex items-center gap-2 text-sm">
                       <MessageCircle className="size-5" />
                       <span>{commentsCountLabel}</span>
@@ -344,14 +356,23 @@ export function TicketDetailPage() {
             <section className="pt-7">
               <h2 className="px-1 text-lg font-bold">Comentários</h2>
               <Separator className="my-3" />
-              <form onSubmit={onSubmitComment} className="space-y-3 rounded-xl border border-border/70 bg-muted/20 p-4">
-                <Textarea value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Escreva um comentário..." rows={3} />
-                <div className="flex justify-end">
-                  <Button type="submit" disabled={sendingComment || !commentText.trim()}>
-                    {sendingComment ? 'Enviando...' : 'Comentar'}
-                  </Button>
-                </div>
-              </form>
+              {user ? (
+                <form onSubmit={onSubmitComment} className="space-y-3 rounded-xl border border-border/70 bg-muted/20 p-4">
+                  <Textarea value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Escreva um comentário..." rows={3} />
+                  <div className="flex justify-end">
+                    <Button type="submit" disabled={sendingComment || !commentText.trim()}>
+                      {sendingComment ? 'Enviando...' : 'Comentar'}
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                <p className="rounded-xl border border-dashed border-border/70 bg-muted/10 px-4 py-3 text-sm text-muted-foreground">
+                  Entre para comentar.{' '}
+                  <Link to="/login" className="font-medium text-primary underline-offset-4 hover:underline">
+                    Entrar
+                  </Link>
+                </p>
+              )}
 
               <div ref={commentsContainerRef} className="mt-4 max-h-104 space-y-3 overflow-y-auto pr-1">
                 {comments.length === 0 ? (

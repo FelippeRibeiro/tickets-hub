@@ -26,7 +26,7 @@ func NewCommentController(commentRepository *repository.CommentRepository, ticke
 	}
 }
 func (cc *CommentController) SetupRoutes(server *http.ServeMux) {
-	server.Handle("GET /api/tickets/{id}/comments", middlewares.AuthMiddleware(http.HandlerFunc(cc.ListComments), false))
+	server.Handle("GET /api/tickets/{id}/comments", http.HandlerFunc(cc.ListComments))
 	server.Handle("POST /api/tickets/{id}/comments", middlewares.AuthMiddleware(http.HandlerFunc(cc.CreateComment), false))
 }
 

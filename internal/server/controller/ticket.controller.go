@@ -33,7 +33,7 @@ func NewTicketController(
 }
 
 func (tc *TicketController) SetupRoutes(server *http.ServeMux) {
-	server.Handle("GET /api/tickets/{id}", middlewares.AuthMiddleware(http.HandlerFunc(tc.GetTicket), false))
+	server.Handle("GET /api/tickets/{id}", http.HandlerFunc(tc.GetTicket))
 	server.Handle("GET /api/tickets", middlewares.AuthMiddleware(http.HandlerFunc(tc.ListTickets), false))
 	server.Handle("POST /api/tickets", middlewares.AuthMiddleware(http.HandlerFunc(tc.CreateTicket), false))
 }
