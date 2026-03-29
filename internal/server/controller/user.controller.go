@@ -4,7 +4,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/FelippeRibeiro/tickets-hub/internal/model"
 	"github.com/FelippeRibeiro/tickets-hub/internal/repository"
@@ -12,6 +15,9 @@ import (
 	"github.com/FelippeRibeiro/tickets-hub/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// maxAvatarBytes limite de tamanho da foto de perfil guardada na base de dados.
+const maxAvatarBytes = 2 << 20 // 2 MiB
 
 // authCookieMaxAge é o Max-Age em segundos. Não existe “infinito” em cookies HTTP;
 // um valor alto mantém o token até o utilizador fazer logout ou limpar dados do site.
@@ -30,6 +36,9 @@ func NewUserController(userRepository *repository.UserRepository) *UserControlle
 func (uc *UserController) SetupRoutes(server *http.ServeMux) {
 	server.Handle("GET /api/users", middlewares.AuthMiddleware(http.HandlerFunc(uc.GetAllUsers), true))
 	server.Handle("GET /api/me", middlewares.AuthMiddleware(http.HandlerFunc(uc.GetAuthUser), false))
+	server.Handle("POST /api/me/avatar", middlewares.AuthMiddleware(http.HandlerFunc(uc.UploadAvatar), false))
+	server.Handle("DELETE /api/me/avatar", middlewares.AuthMiddleware(http.HandlerFunc(uc.DeleteAvatar), false))
+	server.HandleFunc("GET /api/users/{id}/avatar", uc.ServeAvatar)
 	server.HandleFunc("POST /api/users", uc.CreateUser)
 	server.HandleFunc("POST /api/login", uc.Login)
 	server.HandleFunc("POST /api/logout", uc.Logout)
@@ -181,3 +190,134 @@ func (uc *UserController) Login(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"token": payload})
 
 }
+
+func isAvatarImageMime(mime string) bool {
+	mime = strings.TrimSpace(strings.ToLower(mime))
+	if i := strings.Index(mime, ";"); i >= 0 {
+		mime = mime[:i]
+	}
+	switch mime {
+	case "image/jpeg", "image/png", "image/gif", "image/webp":
+		return true
+	default:
+		return false
+	}
+}
+
+func (uc *UserController) UploadAvatar(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	user, ok := r.Context().Value("user").(*utils.Claims)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxAvatarBytes+1)
+	if err := r.ParseMultipartForm(8 << 20); err != nil {
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			w.WriteHeader(http.StatusRequestEntityTooLarge)
+			json.NewEncoder(w).Encode(map[string]string{"error": "imagem demasiado grande (máx. 2 MB)"})
+			return
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "formulário inválido"})
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "campo de ficheiro \"file\" em falta"})
+		return
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(io.LimitReader(file, maxAvatarBytes+1))
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	if len(data) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "ficheiro vazio"})
+		return
+	}
+	if len(data) > maxAvatarBytes {
+		w.WriteHeader(http.StatusRequestEntityTooLarge)
+		json.NewEncoder(w).Encode(map[string]string{"error": "imagem demasiado grande (máx. 2 MB)"})
+		return
+	}
+
+	mime := http.DetectContentType(data)
+	if header.Header.Get("Content-Type") != "" {
+		decl := strings.TrimSpace(strings.ToLower(header.Header.Get("Content-Type")))
+		if i := strings.Index(decl, ";"); i >= 0 {
+			decl = decl[:i]
+		}
+		if strings.HasPrefix(decl, "image/") {
+			mime = decl
+		}
+	}
+	if !isAvatarImageMime(mime) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "apenas imagens JPEG, PNG, GIF ou WebP"})
+		return
+	}
+
+	if err := uc.userRepository.UpdateAvatar(user.UserID, mime, data); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]bool{"has_avatar": true})
+}
+
+func (uc *UserController) DeleteAvatar(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	user, ok := r.Context().Value("user").(*utils.Claims)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	if err := uc.userRepository.ClearAvatar(user.UserID); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]bool{"has_avatar": false})
+}
+
+func (uc *UserController) ServeAvatar(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil || id <= 0 {
+		http.NotFound(w, r)
+		return
+	}
+
+	mime, data, err := uc.userRepository.GetAvatar(id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			http.NotFound(w, r)
+			return
+		}
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", mime)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Cache-Control", "private, no-cache")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+

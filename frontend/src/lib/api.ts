@@ -59,6 +59,12 @@ export type User = {
   name: string
   email: string
   is_admin: boolean
+  has_avatar: boolean
+}
+
+/** URL da foto de perfil (bytes na BD); usar só quando `has_avatar` for true. */
+export function userAvatarUrl(userId: number) {
+  return `/api/users/${userId}/avatar`
 }
 
 export type Topic = {
@@ -84,6 +90,7 @@ export type Ticket = {
   topic_id: number
   created_at: string
   user_name: string
+  user_has_avatar: boolean
   likes_count: number
   comments_count: number
   liked: boolean
@@ -99,6 +106,7 @@ export type Comment = {
   user_id: number
   ticket_id: number
   user_name: string
+  user_has_avatar: boolean
   attachments?: TicketAttachment[]
 }
 export type PaginatedComments = {
@@ -170,6 +178,33 @@ export function logout() {
 
 export function getMe() {
   return api<User>('/api/me')
+}
+
+export async function uploadProfileAvatar(file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  const res = await fetch('/api/me/avatar', {
+    method: 'POST',
+    body: form,
+    credentials: 'include',
+  })
+  if (!res.ok) {
+    let message = res.statusText
+    try {
+      const body = (await res.json()) as { error?: string }
+      if (body?.error) message = body.error
+    } catch {
+      /* ignore */
+    }
+    throw new ApiError(message, res.status)
+  }
+  return parseJson<{ has_avatar: boolean }>(res)
+}
+
+export function deleteProfileAvatar() {
+  return api<{ has_avatar: boolean }>('/api/me/avatar', {
+    method: 'DELETE',
+  })
 }
 
 export function getUsers() {

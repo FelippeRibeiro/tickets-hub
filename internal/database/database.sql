@@ -34,6 +34,10 @@ CREATE TABLE IF NOT EXISTS tickets (
         ON DELETE CASCADE
 );
 
+-- Migração para bases já existentes (idempotente)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_mime TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_data BYTEA;
+
 ALTER TABLE  users ADD CONSTRAINT check_name CHECK ( name != '' );
 ALTER TABLE  users ADD CONSTRAINT check_email CHECK ( email != '' );
 

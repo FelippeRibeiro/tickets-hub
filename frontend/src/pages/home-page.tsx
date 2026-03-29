@@ -9,7 +9,8 @@ import { TicketFeedAttachments } from '@/components/ticket-feed-attachments';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn, initialsFromName } from '@/lib/utils';
+import { UserAvatar } from '@/components/user-avatar';
+import { cn } from '@/lib/utils';
 
 function formatDate(iso: string) {
   try {
@@ -153,9 +154,12 @@ export function HomePage() {
           tickets.map((t) => (
             <Link key={t.id} to={`/ticket/${t.id}`} className="mb-3 block rounded-xl border border-border/70 bg-card/60 px-4 py-3 shadow-sm transition-colors hover:bg-muted/30">
               <div className="flex gap-3">
-                <div className="mt-1 flex size-10 shrink-0 select-none items-center justify-center rounded-full bg-muted text-xs font-semibold tracking-tight text-muted-foreground" aria-hidden>
-                  {initialsFromName(t.user_name)}
-                </div>
+                <UserAvatar
+                  userId={t.user_id}
+                  name={t.user_name}
+                  hasAvatar={Boolean(t.user_has_avatar)}
+                  className="mt-1 size-10"
+                />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-semibold">{t.user_name}</span>

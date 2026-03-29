@@ -6,7 +6,8 @@ import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn, initialsFromName } from '@/lib/utils';
+import { UserAvatar } from '@/components/user-avatar';
+import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
 
 function formatDate(iso: string) {
@@ -296,9 +297,12 @@ export function TicketDetailPage() {
           <>
             <article className="rounded-xl border border-border/70 bg-card/60 p-5 shadow-sm">
               <div className="flex gap-3">
-                <div className="flex size-12 shrink-0 select-none items-center justify-center rounded-full bg-muted text-sm font-semibold tracking-tight text-muted-foreground" aria-hidden>
-                  {initialsFromName(ticket.user_name)}
-                </div>
+                <UserAvatar
+                  userId={ticket.user_id}
+                  name={ticket.user_name}
+                  hasAvatar={Boolean(ticket.user_has_avatar)}
+                  className="size-12"
+                />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-bold">{ticket.user_name}</span>
@@ -452,9 +456,12 @@ export function TicketDetailPage() {
                   comments.map((comment) => (
                     <article key={comment.id} className="rounded-xl border border-border bg-card p-3">
                       <div className="mb-2 flex items-center gap-2">
-                        <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground">
-                          {initialsFromName(comment.user_name)}
-                        </div>
+                        <UserAvatar
+                          userId={comment.user_id}
+                          name={comment.user_name}
+                          hasAvatar={Boolean(comment.user_has_avatar)}
+                          size="sm"
+                        />
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold">{comment.user_name}</p>
                           <p className="text-xs text-muted-foreground">{formatDate(comment.created_at)}</p>

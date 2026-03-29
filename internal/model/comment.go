@@ -16,7 +16,8 @@ type CommentWithUserName struct {
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 	UserId    int       `json:"user_id" db:"user_id"`
 	TicketId  int       `json:"ticket_id" db:"ticket_id"`
-	UserName  string    `json:"user_name" db:"user_name"`
+	UserName      string    `json:"user_name" db:"user_name"`
+	UserHasAvatar bool      `json:"user_has_avatar" db:"user_has_avatar"`
 
 	Attachments []TicketAttachment `json:"attachments,omitempty" db:"-"`
 }

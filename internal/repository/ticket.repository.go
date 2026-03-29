@@ -26,6 +26,7 @@ func (tr *TicketRepository) FindByID(id int) (*model.TicketWithUserName, error) 
 		COALESCE(t.user_id, 0) AS user_id,
 		COALESCE(t.topic_id, 0) AS topic_id,
 		COALESCE(u.name, 'Usuário não encontrado') AS user_name,
+		(COALESCE(octet_length(u.avatar_data), 0) > 0) AS user_has_avatar,
 		COALESCE((SELECT COUNT(*) FROM ticket_likes tl WHERE tl.ticket_id = t.id), 0) AS likes_count,
 		COALESCE((SELECT COUNT(*) FROM comments c WHERE c.ticket_id = t.id), 0) AS comments_count
 		FROM tickets t 
@@ -68,6 +69,7 @@ func (tr *TicketRepository) List(topicID *int, userID *int) ([]model.TicketWithU
 			COALESCE(t.user_id, 0) AS user_id,
 			COALESCE(t.topic_id, 0) AS topic_id,
 			COALESCE(u.name, 'Usuário não encontrado') AS user_name,
+			(COALESCE(octet_length(u.avatar_data), 0) > 0) AS user_has_avatar,
 			COALESCE((SELECT COUNT(*) FROM ticket_likes tl WHERE tl.ticket_id = t.id), 0) AS likes_count,
 			COALESCE((SELECT COUNT(*) FROM comments c WHERE c.ticket_id = t.id), 0) AS comments_count,
 			(SELECT COUNT(*) > 0 FROM ticket_likes WHERE user_id = $2 and ticket_id = t.id) AS liked
@@ -86,6 +88,7 @@ func (tr *TicketRepository) List(topicID *int, userID *int) ([]model.TicketWithU
 			tp.name AS topic_name,
 			COALESCE(t.user_id, 0) AS user_id,
 			COALESCE(u.name, 'Usuário não encontrado') AS user_name,
+			(COALESCE(octet_length(u.avatar_data), 0) > 0) AS user_has_avatar,
 			COALESCE((SELECT COUNT(*) FROM ticket_likes tl WHERE tl.ticket_id = t.id), 0) AS likes_count,
 			COALESCE((SELECT COUNT(*) FROM comments c WHERE c.ticket_id = t.id), 0) AS comments_count,
 			(SELECT COUNT(*) > 0 FROM ticket_likes WHERE user_id = $1 and ticket_id = t.id) AS liked

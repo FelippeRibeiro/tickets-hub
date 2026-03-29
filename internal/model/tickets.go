@@ -32,6 +32,7 @@ type TicketWithUserName struct {
 
 	UserID   int    `json:"user_id" db:"user_id"`
 	UserName string `json:"user_name" db:"user_name"`
+	UserHasAvatar bool `json:"user_has_avatar" db:"user_has_avatar"`
 	TopicID  int    `json:"topic_id" db:"topic_id"`
 	TopicName string `json:"topic_name" db:"topic_name"`
 
