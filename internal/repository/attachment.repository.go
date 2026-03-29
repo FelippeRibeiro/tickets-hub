@@ -6,6 +6,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+
 type AttachmentRepository struct {
 	db *sqlx.DB
 }
@@ -31,6 +32,28 @@ func (r *AttachmentRepository) ListByTicketID(ticketID int) ([]model.TicketAttac
 		FROM ticket_attachments
 		WHERE ticket_id = $1
 		ORDER BY id ASC`, ticketID)
+	if err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
+// ListByTicketIDs devolve anexos para vários tickets (uma query), ordenados por ticket_id e id.
+func (r *AttachmentRepository) ListByTicketIDs(ticketIDs []int) ([]model.TicketAttachmentRow, error) {
+	if len(ticketIDs) == 0 {
+		return nil, nil
+	}
+	query, args, err := sqlx.In(`
+		SELECT id, ticket_id, original_name, stored_path, mime_type, size_bytes, created_at
+		FROM ticket_attachments
+		WHERE ticket_id IN (?)
+		ORDER BY ticket_id ASC, id ASC`, ticketIDs)
+	if err != nil {
+		return nil, err
+	}
+	query = r.db.Rebind(query)
+	var rows []model.TicketAttachmentRow
+	err = r.db.Select(&rows, query, args...)
 	if err != nil {
 		return nil, err
 	}

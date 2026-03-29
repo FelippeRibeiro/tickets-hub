@@ -5,6 +5,7 @@ import { ApiError, getTickets, getTopics, likeTicket, unlikeTicket, type Ticket,
 import { useAuth } from '@/contexts/auth-context';
 import { ComposeTicketDialog } from '@/components/compose-ticket-dialog';
 import { CreateTopicDialog } from '@/components/create-topic-dialog';
+import { TicketFeedAttachments } from '@/components/ticket-feed-attachments';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -166,6 +167,9 @@ export function HomePage() {
                   </Badge>
                   <p className="mt-2 text-base font-semibold leading-snug">{t.title}</p>
                   <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{t.description}</p>
+                  {t.attachments && t.attachments.length > 0 ? (
+                    <TicketFeedAttachments attachments={t.attachments} />
+                  ) : null}
                   <div className="mt-3 flex max-w-xs items-center gap-6 text-muted-foreground">
                     <button
                       type="button"

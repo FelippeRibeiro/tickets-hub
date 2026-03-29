@@ -135,8 +135,40 @@ func (tc *TicketController) ListTickets(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	tc.enrichListAttachments(tickets)
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(tickets)
+}
+
+func (tc *TicketController) enrichListAttachments(tickets []model.TicketWithUserName) {
+	if tc.attachmentRepository == nil || len(tickets) == 0 {
+		return
+	}
+	ids := make([]int, len(tickets))
+	for i := range tickets {
+		ids[i] = tickets[i].ID
+	}
+	rows, err := tc.attachmentRepository.ListByTicketIDs(ids)
+	if err != nil || len(rows) == 0 {
+		return
+	}
+	byTicket := make(map[int][]model.TicketAttachment)
+	for _, row := range rows {
+		att := model.TicketAttachment{
+			ID:           row.ID,
+			OriginalName: row.OriginalName,
+			MimeType:     row.MimeType,
+			SizeBytes:    row.SizeBytes,
+			URL:          fmt.Sprintf("/api/files/tickets/%d/attachments/%d", row.TicketID, row.ID),
+		}
+		byTicket[row.TicketID] = append(byTicket[row.TicketID], att)
+	}
+	for i := range tickets {
+		if atts, ok := byTicket[tickets[i].ID]; ok {
+			tickets[i].Attachments = atts
+		}
+	}
 }
 
 func (tc *TicketController) CreateTicket(w http.ResponseWriter, r *http.Request) {
