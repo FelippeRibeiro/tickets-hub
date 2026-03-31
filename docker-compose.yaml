@@ -11,11 +11,10 @@ services:
     networks:
       app-network:
 
-
-
   postgres:
     image: postgres:latest
     container_name: ticket-postgres
+    restart: always
     environment:
       POSTGRES_DB: dev
       POSTGRES_USER: admin
@@ -24,7 +23,6 @@ services:
       - "5432:5432"
     networks:
       app-network:
-
 
 networks:
   app-network:
