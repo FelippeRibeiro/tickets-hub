@@ -85,6 +85,7 @@ export type Ticket = {
   id: number
   title: string
   description: string
+  is_anonymous: boolean
   status: string
   user_id: number
   topic_id: number
@@ -94,6 +95,7 @@ export type Ticket = {
   likes_count: number
   comments_count: number
   liked: boolean
+  is_owner: boolean
   topic_name: string
   attachments?: TicketAttachment[]
 }
@@ -105,8 +107,10 @@ export type Comment = {
   created_at: string
   user_id: number
   ticket_id: number
+  is_anonymous: boolean
   user_name: string
   user_has_avatar: boolean
+  is_owner: boolean
   attachments?: TicketAttachment[]
 }
 export type PaginatedComments = {
@@ -238,6 +242,7 @@ export function createTicket(payload: {
   title: string
   description: string
   topic_id: number
+  is_anonymous?: boolean
   files?: File[]
 }) {
   if (payload.files && payload.files.length > 0) {
@@ -245,6 +250,7 @@ export function createTicket(payload: {
     form.append('title', payload.title)
     form.append('description', payload.description)
     form.append('topic_id', String(payload.topic_id))
+    form.append('is_anonymous', String(Boolean(payload.is_anonymous)))
     for (const f of payload.files) {
       form.append('files', f)
     }
@@ -256,6 +262,7 @@ export function createTicket(payload: {
       title: payload.title,
       description: payload.description,
       topic_id: payload.topic_id,
+      is_anonymous: Boolean(payload.is_anonymous),
     }),
   })
 }
@@ -295,11 +302,13 @@ export function getTicketComments(
 export function createTicketComment(
   ticketId: number,
   comment: string,
-  files?: File[]
+  files?: File[],
+  isAnonymous?: boolean
 ) {
   if (files && files.length > 0) {
     const form = new FormData()
     form.append('comment', comment)
+    form.append('is_anonymous', String(Boolean(isAnonymous)))
     for (const f of files) {
       form.append('files', f)
     }
@@ -310,7 +319,13 @@ export function createTicketComment(
   }
   return api<Comment>(`/api/tickets/${ticketId}/comments`, {
     method: 'POST',
-    body: JSON.stringify({ comment }),
+    body: JSON.stringify({ comment, is_anonymous: Boolean(isAnonymous) }),
+  })
+}
+
+export function deleteComment(commentId: number) {
+  return api<{ message: string }>(`/api/comments/${commentId}`, {
+    method: 'DELETE',
   })
 }
 

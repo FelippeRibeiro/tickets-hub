@@ -41,8 +41,9 @@ func NewCommentController(
 }
 
 func (cc *CommentController) SetupRoutes(server *http.ServeMux) {
-	server.Handle("GET /api/tickets/{id}/comments", http.HandlerFunc(cc.ListComments))
+	server.Handle("GET /api/tickets/{id}/comments", middlewares.OptionalAuthMiddleware(http.HandlerFunc(cc.ListComments)))
 	server.Handle("POST /api/tickets/{id}/comments", middlewares.AuthMiddleware(http.HandlerFunc(cc.CreateComment), false))
+	server.Handle("DELETE /api/comments/{comment_id}", middlewares.AuthMiddleware(http.HandlerFunc(cc.DeleteComment), false))
 }
 
 func (cc *CommentController) enrichCommentAttachments(comments []model.CommentWithUserName) {
@@ -75,8 +76,25 @@ func (cc *CommentController) enrichCommentAttachments(comments []model.CommentWi
 	}
 }
 
+func anonymizeCommentAuthor(comment *model.CommentWithUserName) {
+	if comment == nil || !comment.IsAnonymous {
+		return
+	}
+	comment.UserName = "Usuário anônimo"
+	comment.UserHasAvatar = false
+	comment.UserId = 0
+}
+
+func setCommentOwner(comment *model.CommentWithUserName, user *utils.Claims) {
+	if comment == nil || user == nil {
+		return
+	}
+	comment.IsOwner = comment.UserId == user.UserID || user.IsAdmin
+}
+
 func (cc *CommentController) ListComments(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	user, _ := r.Context().Value("user").(*utils.Claims)
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id <= 0 {
 		w.WriteHeader(http.StatusBadRequest)
@@ -122,6 +140,14 @@ func (cc *CommentController) ListComments(w http.ResponseWriter, r *http.Request
 		return
 	}
 	cc.enrichCommentAttachments(comments)
+	for i := range comments {
+		setCommentOwner(&comments[i], user)
+		if comments[i].IsAnonymous {
+			comments[i].UserName = "Usuário anônimo"
+			comments[i].UserHasAvatar = false
+			comments[i].UserId = 0
+		}
+	}
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]any{
@@ -192,6 +218,8 @@ func (cc *CommentController) CreateComment(w http.ResponseWriter, r *http.Reques
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
+	setCommentOwner(created, user)
+	anonymizeCommentAuthor(created)
 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(created)
@@ -214,6 +242,7 @@ func (cc *CommentController) createCommentMultipart(w http.ResponseWriter, r *ht
 	}
 
 	commentText := strings.TrimSpace(r.FormValue("comment"))
+	isAnonymous := strings.EqualFold(strings.TrimSpace(r.FormValue("is_anonymous")), "true")
 	var fileHeaders []*multipart.FileHeader
 	if r.MultipartForm != nil {
 		fileHeaders = r.MultipartForm.File["files"]
@@ -231,7 +260,7 @@ func (cc *CommentController) createCommentMultipart(w http.ResponseWriter, r *ht
 		return
 	}
 
-	in := model.CreateComment{Comment: commentText, TicketId: ticketID}
+	in := model.CreateComment{Comment: commentText, TicketId: ticketID, IsAnonymous: isAnonymous}
 	created, err := cc.commentRepository.Create(user.UserID, &in)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -270,7 +299,52 @@ func (cc *CommentController) createCommentMultipart(w http.ResponseWriter, r *ht
 			}
 		}
 	}
+	setCommentOwner(created, user)
+	anonymizeCommentAuthor(created)
 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(created)
+}
+
+func (cc *CommentController) DeleteComment(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	user, ok := r.Context().Value("user").(*utils.Claims)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	commentID, err := strconv.Atoi(r.PathValue("comment_id"))
+	if err != nil || commentID <= 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid comment id"})
+		return
+	}
+
+	comment, err := cc.commentRepository.FindByID(commentID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "comment not found"})
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	if comment.UserId != user.UserID && !user.IsAdmin {
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{"error": "only the comment author or an admin can delete"})
+		return
+	}
+
+	if err := cc.commentRepository.DeleteByID(commentID); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "comment deleted successfully"})
 }

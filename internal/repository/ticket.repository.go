@@ -20,6 +20,7 @@ func (tr *TicketRepository) FindByID(id int) (*model.TicketWithUserName, error) 
 		t.id,
 		t.title,
 		t.description,
+		t.is_anonymous,
 		t.status,
 		t.created_at,
 		tp.name AS topic_name,
@@ -42,10 +43,10 @@ func (tr *TicketRepository) FindByID(id int) (*model.TicketWithUserName, error) 
 func (tr *TicketRepository) Create(userID int, ticket *model.CreateTicket) (*model.Ticket, error) {
 	var out model.Ticket
 	err := tr.db.QueryRowx(`
-		INSERT INTO tickets (title, description, status, user_id, topic_id)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, title, description, status, user_id, topic_id, created_at`,
-		ticket.Title, ticket.Description, "created", userID, ticket.TopicID,
+		INSERT INTO tickets (title, description, status, user_id, topic_id, is_anonymous)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, title, description, status, user_id, topic_id, created_at, is_anonymous`,
+		ticket.Title, ticket.Description, "created", userID, ticket.TopicID, ticket.IsAnonymous,
 	).StructScan(&out)
 	if err != nil {
 		return nil, err
@@ -63,6 +64,7 @@ func (tr *TicketRepository) List(topicID *int, userID *int) ([]model.TicketWithU
 			t.id,
 			t.title,
 			t.description,
+			t.is_anonymous,
 			t.status,
 			t.created_at,
 			tp.name AS topic_name,
@@ -83,6 +85,7 @@ func (tr *TicketRepository) List(topicID *int, userID *int) ([]model.TicketWithU
 			t.id,
 			t.title,
 			t.description,
+			t.is_anonymous,
 			t.status,
 			t.created_at,
 			tp.name AS topic_name,

@@ -10,6 +10,7 @@ import (
 	"github.com/FelippeRibeiro/tickets-hub/internal/database"
 	"github.com/FelippeRibeiro/tickets-hub/internal/repository"
 	"github.com/FelippeRibeiro/tickets-hub/internal/server/controller"
+	"github.com/FelippeRibeiro/tickets-hub/internal/server/middlewares"
 )
 
 func Server() {
@@ -18,6 +19,7 @@ func Server() {
 		panic(err)
 	}
 	defer db.Close()
+	middlewares.SetDB(db)
 
 	uploadRoot := os.Getenv("UPLOAD_DIR")
 	if uploadRoot == "" {

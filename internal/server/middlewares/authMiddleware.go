@@ -46,3 +46,29 @@ func AuthMiddleware(next http.Handler, isAdmin bool) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
+func OptionalAuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token, err := r.Cookie("token")
+		if err != nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		payload, err := utils.ValidateJWTToken(token.Value)
+		if err != nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		user, _ := userRepository.FindByID(payload.UserID)
+		if user == nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), "user", payload)
+		r = r.WithContext(ctx)
+		next.ServeHTTP(w, r)
+	})
+}

@@ -11,20 +11,36 @@ type CommentRepository struct {
 
 func NewCommentRepository(db *sqlx.DB) *CommentRepository { return &CommentRepository{db: db} }
 
+func (cr *CommentRepository) FindByID(commentID int) (*model.CommentWithUserName, error) {
+	var out model.CommentWithUserName
+	err := cr.db.Get(&out, `SELECT c.id, c.comment, c.created_at,
+		COALESCE(c.user_id, 0) as user_id, c.ticket_id, c.is_anonymous,
+		COALESCE(u.name, 'Usuário não encontrado') as user_name,
+		(COALESCE(octet_length(u.avatar_data), 0) > 0) AS user_has_avatar
+		FROM comments c
+		LEFT JOIN users u ON c.user_id = u.id
+		WHERE c.id = $1`, commentID)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 func (cr *CommentRepository) Create(userID int, comment *model.CreateComment) (*model.CommentWithUserName, error) {
 	var out model.CommentWithUserName
 	err := cr.db.Get(&out, `
-		INSERT INTO comments (comment, user_id, ticket_id) 
-		VALUES ($1, $2, $3)
+		INSERT INTO comments (comment, user_id, ticket_id, is_anonymous) 
+		VALUES ($1, $2, $3, $4)
 		RETURNING 
 			id,
 			comment,
 			created_at,
 			user_id,
 			ticket_id,
+			is_anonymous,
 			(SELECT name FROM users WHERE id = $2) AS user_name,
 			(SELECT (COALESCE(octet_length(avatar_data), 0) > 0) FROM users WHERE id = $2) AS user_has_avatar
-	`, comment.Comment, userID, comment.TicketId)
+	`, comment.Comment, userID, comment.TicketId, comment.IsAnonymous)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +50,7 @@ func (cr *CommentRepository) Create(userID int, comment *model.CreateComment) (*
 func (cr *CommentRepository) ListByTicket(ticketID int, limit int, offset int) ([]model.CommentWithUserName, bool, error) {
 	out := []model.CommentWithUserName{}
 	err := cr.db.Select(&out, `SELECT c.id, c.comment, c.created_at, 
-	 COALESCE(c.user_id, 0) as user_id, c.ticket_id, 
+	 COALESCE(c.user_id, 0) as user_id, c.ticket_id, c.is_anonymous,
 	 COALESCE(u.name, 'Usuário não encontrado') as user_name,
 	 (COALESCE(octet_length(u.avatar_data), 0) > 0) AS user_has_avatar
 		FROM comments c
@@ -50,4 +66,9 @@ func (cr *CommentRepository) ListByTicket(ticketID int, limit int, offset int) (
 		out = out[:limit]
 	}
 	return out, hasMore, nil
+}
+
+func (cr *CommentRepository) DeleteByID(commentID int) error {
+	_, err := cr.db.Exec(`DELETE FROM comments WHERE id = $1`, commentID)
+	return err
 }

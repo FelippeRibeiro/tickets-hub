@@ -106,6 +106,11 @@ CREATE TABLE IF NOT EXISTS comment_attachments (
 
 CREATE INDEX IF NOT EXISTS idx_comment_attachments_comment_id ON comment_attachments(comment_id);
 
+
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS is_anonymous BOOLEAN DEFAULT FALSE;
+ALTER TABLE comments ADD COLUMN IF NOT EXISTS is_anonymous BOOLEAN DEFAULT FALSE;
+
+
 -- CREATE TABLE IF NOT EXISTS notifications (
 --     id SERIAL PRIMARY KEY,
 --     user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

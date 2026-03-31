@@ -32,6 +32,7 @@ export function ComposeTicketDialog({ topics, onCreated }: Props) {
   const [description, setDescription] = useState('')
   const [topicId, setTopicId] = useState<string>('')
   const [files, setFiles] = useState<File[]>([])
+  const [isAnonymous, setIsAnonymous] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const selectedTopic = topics.find((t) => String(t.id) === topicId)
@@ -57,12 +58,14 @@ export function ComposeTicketDialog({ topics, onCreated }: Props) {
         title,
         description,
         topic_id: id,
+        is_anonymous: isAnonymous,
         files: files.length > 0 ? files : undefined,
       })
       setTitle('')
       setDescription('')
       setTopicId('')
       setFiles([])
+      setIsAnonymous(false)
       setOpen(false)
       onCreated()
     } catch (err) {
@@ -163,6 +166,26 @@ export function ComposeTicketDialog({ topics, onCreated }: Props) {
                 </p>
               ) : null}
             </div>
+            <label
+              htmlFor="ticket-anonymous"
+              className="flex items-start gap-3 rounded-lg border border-border/70 bg-muted/20 p-3"
+            >
+              <Input
+                id="ticket-anonymous"
+                type="checkbox"
+                checked={isAnonymous}
+                onChange={(e) => setIsAnonymous(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-border px-0 py-0"
+              />
+              <div className="space-y-1">
+                <span className="block text-sm font-medium">
+                  Publicar anonimamente
+                </span>
+                <span className="block text-xs text-muted-foreground">
+                  Seu nome e foto de perfil nao serao exibidos neste ticket.
+                </span>
+              </div>
+            </label>
           </div>
           <DialogFooter className="border-0 bg-transparent p-0 pt-2 sm:justify-end">
             <Button type="submit" disabled={pending}>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Heart, MessageCircle, Trash2 } from 'lucide-react';
-import { ApiError, createTicketComment, deleteTicket, getTicket, getTicketComments, getTicketLikes, likeTicket, uploadTicketAttachment, type Comment, unlikeTicket, type Ticket, type TicketAttachment } from '@/lib/api';
+import { ApiError, createTicketComment, deleteComment, deleteTicket, getTicket, getTicketComments, getTicketLikes, likeTicket, uploadTicketAttachment, type Comment, unlikeTicket, type Ticket, type TicketAttachment } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { AttachmentPreview } from '@/components/attachment-preview';
@@ -71,6 +71,7 @@ export function TicketDetailPage() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState('');
   const [commentFiles, setCommentFiles] = useState<File[]>([]);
+  const [anonymousComment, setAnonymousComment] = useState(false);
   const [sendingComment, setSendingComment] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
   const [hasMoreComments, setHasMoreComments] = useState(true);
@@ -84,6 +85,8 @@ export function TicketDetailPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingTicket, setDeletingTicket] = useState(false);
+  const [commentToDelete, setCommentToDelete] = useState<Comment | null>(null);
+  const [deletingComment, setDeletingComment] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const commentFileInputRef = useRef<HTMLInputElement | null>(null);
   const commentsContainerRef = useRef<HTMLDivElement | null>(null);
@@ -92,7 +95,7 @@ export function TicketDetailPage() {
   const canUploadAttachments =
     Boolean(user) && Boolean(ticket) && (user!.is_admin || user!.id === ticket!.user_id);
   const canDeleteTicket =
-    Boolean(user) && Boolean(ticket) && (user!.is_admin || user!.id === ticket!.user_id);
+    Boolean(ticket?.is_owner);
 
   const commentsCountLabel = useMemo(() => {
     const count = ticket?.comments_count ?? comments.length;
@@ -226,10 +229,12 @@ export function TicketDetailPage() {
         ticket.id,
         trimmed,
         commentFiles.length > 0 ? commentFiles : undefined,
+        anonymousComment,
       );
       setComments((prev) => [...prev, created]);
       setCommentText('');
       setCommentFiles([]);
+      setAnonymousComment(false);
       if (commentFileInputRef.current) {
         commentFileInputRef.current.value = '';
       }
@@ -261,6 +266,30 @@ export function TicketDetailPage() {
       setError(e instanceof ApiError ? e.message : 'Falha ao excluir ticket');
     } finally {
       setDeletingTicket(false);
+    }
+  }
+
+  async function onDeleteComment() {
+    if (!commentToDelete || deletingComment) {
+      return;
+    }
+    setDeletingComment(true);
+    try {
+      await deleteComment(commentToDelete.id);
+      setComments((prev) => prev.filter((comment) => comment.id !== commentToDelete.id));
+      setTicket((prev) =>
+        prev
+          ? {
+              ...prev,
+              comments_count: Math.max((prev.comments_count ?? 1) - 1, 0),
+            }
+          : prev,
+      );
+      setCommentToDelete(null);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Falha ao excluir comentário');
+    } finally {
+      setDeletingComment(false);
     }
   }
 
@@ -447,6 +476,17 @@ export function TicketDetailPage() {
                       </span>
                     ) : null}
                   </div>
+                  <label className="flex items-start gap-3 rounded-lg border border-border/70 bg-background/60 p-3">
+                    <input
+                      type="checkbox"
+                      checked={anonymousComment}
+                      onChange={(e) => setAnonymousComment(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-border"
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      Comentar anonimamente. Seu nome e foto nao serao exibidos neste comentario.
+                    </span>
+                  </label>
                   <div className="flex justify-end">
                     <Button
                       type="submit"
@@ -485,6 +525,18 @@ export function TicketDetailPage() {
                           <p className="truncate text-sm font-semibold">{comment.user_name}</p>
                           <p className="text-xs text-muted-foreground">{formatDate(comment.created_at)}</p>
                         </div>
+                        {comment.is_owner ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="ml-auto text-destructive hover:text-destructive"
+                            onClick={() => setCommentToDelete(comment)}
+                          >
+                            <Trash2 className="size-4" />
+                            Excluir
+                          </Button>
+                        ) : null}
                       </div>
                       {comment.comment ? (
                         <p className="whitespace-pre-wrap text-sm leading-relaxed">{comment.comment}</p>
@@ -528,6 +580,41 @@ export function TicketDetailPage() {
               onClick={() => void onDeleteTicket()}
             >
               {deletingTicket ? 'Excluindo...' : 'Confirmar exclusão'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={Boolean(commentToDelete)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCommentToDelete(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir comentário?</DialogTitle>
+            <DialogDescription>
+              Esta ação remove o comentário e os anexos associados. Não poderá ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={deletingComment}
+              onClick={() => setCommentToDelete(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deletingComment}
+              onClick={() => void onDeleteComment()}
+            >
+              {deletingComment ? 'Excluindo...' : 'Confirmar exclusão'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -8,7 +8,7 @@ type Ticket struct {
 	ID          int    `json:"id" db:"id"`
 	Title       string `json:"title" db:"title"`
 	Description string `json:"description" db:"description"`
-
+	IsAnonymous bool `json:"is_anonymous" db:"is_anonymous"`
 	Status string `json:"status" db:"status"`
 
 	UserID  int `json:"user_id" db:"user_id"`
@@ -21,13 +21,14 @@ type CreateTicket struct {
 	Title       string `json:"title" db:"title"`
 	Description string `json:"description" db:"description"`
 	TopicID     int    `json:"topic_id" db:"topic_id"`
+	IsAnonymous bool `json:"is_anonymous" db:"is_anonymous"`
 }
 
 type TicketWithUserName struct {
 	ID          int    `json:"id" db:"id"`
 	Title       string `json:"title" db:"title"`
 	Description string `json:"description" db:"description"`
-
+	IsAnonymous bool `json:"is_anonymous" db:"is_anonymous"`
 	Status string `json:"status" db:"status"`
 
 	UserID   int    `json:"user_id" db:"user_id"`
@@ -39,6 +40,7 @@ type TicketWithUserName struct {
 	LikesCount    int `json:"likes_count" db:"likes_count"`
 	CommentsCount int `json:"comments_count" db:"comments_count"`
 	Liked         bool `json:"liked" db:"liked"`
+	IsOwner       bool `json:"is_owner" db:"-"`
 
 	Attachments []TicketAttachment `json:"attachments,omitempty" db:"-"`
 

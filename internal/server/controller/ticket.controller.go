@@ -40,7 +40,7 @@ func NewTicketController(
 }
 
 func (tc *TicketController) SetupRoutes(server *http.ServeMux) {
-	server.Handle("GET /api/tickets/{id}", http.HandlerFunc(tc.GetTicket))
+	server.Handle("GET /api/tickets/{id}", middlewares.OptionalAuthMiddleware(http.HandlerFunc(tc.GetTicket)))
 	server.Handle("GET /api/tickets", middlewares.AuthMiddleware(http.HandlerFunc(tc.ListTickets), false))
 	server.Handle("POST /api/tickets", middlewares.AuthMiddleware(http.HandlerFunc(tc.CreateTicket), false))
 	server.Handle("DELETE /api/tickets/{id}", middlewares.AuthMiddleware(http.HandlerFunc(tc.DeleteTicket), false))
@@ -69,6 +69,7 @@ func (tc *TicketController) ticketAttachments(ticketID int) []model.TicketAttach
 
 func (tc *TicketController) GetTicket(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	user, _ := r.Context().Value("user").(*utils.Claims)
 
 	idStr := r.PathValue("id")
 	id, err := strconv.Atoi(idStr)
@@ -93,6 +94,15 @@ func (tc *TicketController) GetTicket(w http.ResponseWriter, r *http.Request) {
 	if atts := tc.ticketAttachments(id); len(atts) > 0 {
 		ticket.Attachments = atts
 	}
+	if user != nil {
+		ticket.IsOwner = ticket.UserID == user.UserID || user.IsAdmin
+	}
+	if ticket.IsAnonymous {
+		ticket.UserName = "Usuário anônimo"
+		ticket.UserHasAvatar = false
+		ticket.UserID = 0
+	}
+
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(ticket)
@@ -137,6 +147,15 @@ func (tc *TicketController) ListTickets(w http.ResponseWriter, r *http.Request) 
 	}
 
 	tc.enrichListAttachments(tickets)
+
+	for i := range tickets {
+		tickets[i].IsOwner = tickets[i].UserID == user.UserID || user.IsAdmin
+		if tickets[i].IsAnonymous {
+			tickets[i].UserName = "Usuário anônimo"
+			tickets[i].UserHasAvatar = false
+			tickets[i].UserID = 0
+		}
+	}
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(tickets)
@@ -249,6 +268,7 @@ func (tc *TicketController) createTicketMultipart(w http.ResponseWriter, r *http
 
 	title := strings.TrimSpace(r.FormValue("title"))
 	description := strings.TrimSpace(r.FormValue("description"))
+	isAnonymous := strings.EqualFold(strings.TrimSpace(r.FormValue("is_anonymous")), "true")
 	topicID, err := strconv.Atoi(strings.TrimSpace(r.FormValue("topic_id")))
 	if err != nil || topicID <= 0 {
 		w.WriteHeader(http.StatusBadRequest)
@@ -274,7 +294,7 @@ func (tc *TicketController) createTicketMultipart(w http.ResponseWriter, r *http
 		return
 	}
 
-	body := model.CreateTicket{Title: title, Description: description, TopicID: topicID}
+	body := model.CreateTicket{Title: title, Description: description, TopicID: topicID, IsAnonymous: isAnonymous}
 	ticket, err := tc.ticketRepository.Create(user.UserID, &body)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
