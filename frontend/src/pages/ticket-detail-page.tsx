@@ -4,6 +4,7 @@ import { ArrowLeft, Heart, MessageCircle, Trash2 } from 'lucide-react';
 import { ApiError, createTicketComment, deleteTicket, getTicket, getTicketComments, getTicketLikes, likeTicket, uploadTicketAttachment, type Comment, unlikeTicket, type Ticket, type TicketAttachment } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
+import { AttachmentPreview } from '@/components/attachment-preview';
 import {
   Dialog,
   DialogContent,
@@ -266,24 +267,26 @@ export function TicketDetailPage() {
   function renderAttachmentMedia(a: TicketAttachment) {
     if (a.mime_type.startsWith('image/')) {
       return (
-        <img
-          key={a.id}
-          src={a.url}
-          alt={a.original_name}
-          className="max-h-72 w-full rounded-lg border border-border object-contain"
-          loading="lazy"
-        />
+        <AttachmentPreview key={a.id} attachment={a}>
+          <img
+            src={a.url}
+            alt={a.original_name}
+            className="max-h-72 w-full rounded-lg border border-border object-contain"
+            loading="lazy"
+          />
+        </AttachmentPreview>
       );
     }
     if (a.mime_type.startsWith('video/')) {
       return (
-        <video
-          key={a.id}
-          src={a.url}
-          controls
-          className="max-h-72 w-full rounded-lg border border-border bg-black/40"
-          preload="metadata"
-        />
+        <AttachmentPreview key={a.id} attachment={a}>
+          <video
+            src={a.url}
+            controls
+            className="max-h-72 w-full rounded-lg border border-border bg-black/40"
+            preload="metadata"
+          />
+        </AttachmentPreview>
       );
     }
     return (
@@ -390,35 +393,7 @@ export function TicketDetailPage() {
               <section className="mt-6 space-y-3">
                 <h2 className="px-1 text-lg font-bold">Anexos</h2>
                 <div className="grid gap-4 sm:grid-cols-1">
-                  {ticket.attachments.map((a) =>
-                    a.mime_type.startsWith('image/') ? (
-                      <img
-                        key={a.id}
-                        src={a.url}
-                        alt={a.original_name}
-                        className="max-h-96 w-full rounded-lg border border-border object-contain"
-                        loading="lazy"
-                      />
-                    ) : a.mime_type.startsWith('video/') ? (
-                      <video
-                        key={a.id}
-                        src={a.url}
-                        controls
-                        className="max-h-96 w-full rounded-lg border border-border bg-black/40"
-                        preload="metadata"
-                      />
-                    ) : (
-                      <a
-                        key={a.id}
-                        href={a.url}
-                        className="text-sm text-primary underline"
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {a.original_name}
-                      </a>
-                    ),
-                  )}
+                  {ticket.attachments.map((a) => renderAttachmentMedia(a))}
                 </div>
               </section>
             ) : null}

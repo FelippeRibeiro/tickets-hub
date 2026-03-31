@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import type { TicketAttachment } from '@/lib/api'
+import { AttachmentPreview } from '@/components/attachment-preview'
 
 const MAX_PREVIEW = 4
 
@@ -12,40 +13,44 @@ function FeedThumb({ a }: { a: TicketAttachment }) {
 
   if (a.mime_type.startsWith('image/')) {
     return (
-      <img
-        src={a.url}
-        alt=""
-        className="h-14 max-w-[120px] rounded-md border border-border/60 object-cover"
-        loading="lazy"
-      />
+      <AttachmentPreview attachment={a}>
+        <img
+          src={a.url}
+          alt={a.original_name}
+          className="h-14 max-w-[120px] rounded-md border border-border/60 object-cover"
+          loading="lazy"
+        />
+      </AttachmentPreview>
     )
   }
 
   if (a.mime_type.startsWith('video/')) {
     return (
-      <div
-        className="relative h-14 w-[104px] shrink-0 overflow-hidden rounded-md border border-border/60 bg-black/40"
-        onMouseEnter={() => {
-          void videoRef.current?.play()
-        }}
-        onMouseLeave={() => {
-          const v = videoRef.current
-          if (v) {
-            v.pause()
-            v.currentTime = 0
-          }
-        }}
-      >
-        <video
-          ref={videoRef}
-          src={a.url}
-          muted
-          playsInline
-          loop
-          preload="metadata"
-          className="h-full w-full object-cover"
-        />
-      </div>
+      <AttachmentPreview attachment={a}>
+        <div
+          className="relative h-14 w-[104px] shrink-0 overflow-hidden rounded-md border border-border/60 bg-black/40"
+          onMouseEnter={() => {
+            void videoRef.current?.play()
+          }}
+          onMouseLeave={() => {
+            const v = videoRef.current
+            if (v) {
+              v.pause()
+              v.currentTime = 0
+            }
+          }}
+        >
+          <video
+            ref={videoRef}
+            src={a.url}
+            muted
+            playsInline
+            loop
+            preload="metadata"
+            className="h-full w-full object-cover"
+          />
+        </div>
+      </AttachmentPreview>
     )
   }
 
