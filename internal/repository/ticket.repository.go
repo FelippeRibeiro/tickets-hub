@@ -102,3 +102,13 @@ func (tr *TicketRepository) List(topicID *int, userID *int) ([]model.TicketWithU
 	}
 	return tickets, nil
 }
+
+
+func (tr *TicketRepository) DeleteTicket(ticketID int) error {
+	_,err:= tr.db.Exec(`
+		DELETE FROM tickets WHERE id = $1`, ticketID)
+	if err != nil {
+		return err
+	}
+	return nil
+}

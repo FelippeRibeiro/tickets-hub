@@ -1,9 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Heart, MessageCircle } from 'lucide-react';
-import { ApiError, createTicketComment, getTicket, getTicketComments, getTicketLikes, likeTicket, uploadTicketAttachment, type Comment, unlikeTicket, type Ticket, type TicketAttachment } from '@/lib/api';
+import { ArrowLeft, Heart, MessageCircle, Trash2 } from 'lucide-react';
+import { ApiError, createTicketComment, deleteTicket, getTicket, getTicketComments, getTicketLikes, likeTicket, uploadTicketAttachment, type Comment, unlikeTicket, type Ticket, type TicketAttachment } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { UserAvatar } from '@/components/user-avatar';
@@ -73,12 +81,16 @@ export function TicketDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingTicket, setDeletingTicket] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const commentFileInputRef = useRef<HTMLInputElement | null>(null);
   const commentsContainerRef = useRef<HTMLDivElement | null>(null);
   const COMMENT_PAGE_SIZE = 10;
 
   const canUploadAttachments =
+    Boolean(user) && Boolean(ticket) && (user!.is_admin || user!.id === ticket!.user_id);
+  const canDeleteTicket =
     Boolean(user) && Boolean(ticket) && (user!.is_admin || user!.id === ticket!.user_id);
 
   const commentsCountLabel = useMemo(() => {
@@ -235,6 +247,22 @@ export function TicketDetailPage() {
     }
   }
 
+  async function onDeleteTicket() {
+    if (!ticket || deletingTicket) {
+      return;
+    }
+    setDeletingTicket(true);
+    try {
+      await deleteTicket(ticket.id);
+      navigate('/', { replace: true });
+    } catch (e) {
+      setDeleteDialogOpen(false);
+      setError(e instanceof ApiError ? e.message : 'Falha ao excluir ticket');
+    } finally {
+      setDeletingTicket(false);
+    }
+  }
+
   function renderAttachmentMedia(a: TicketAttachment) {
     if (a.mime_type.startsWith('image/')) {
       return (
@@ -304,12 +332,28 @@ export function TicketDetailPage() {
                   className="size-12"
                 />
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-bold">{ticket.user_name}</span>
-                    <span className="text-muted-foreground">·</span>
-                    <span className="text-sm text-muted-foreground">{formatDate(ticket.created_at)}</span>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-bold">{ticket.user_name}</span>
+                        <span className="text-muted-foreground">·</span>
+                        <span className="text-sm text-muted-foreground">{formatDate(ticket.created_at)}</span>
+                      </div>
+                      <p className="mt-1 text-sm text-primary">{ticket.topic_name || `Tópico #${ticket.topic_id}`}</p>
+                    </div>
+                    {canDeleteTicket ? (
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="shrink-0"
+                        onClick={() => setDeleteDialogOpen(true)}
+                      >
+                        <Trash2 className="size-4" />
+                        Excluir
+                      </Button>
+                    ) : null}
                   </div>
-                  <p className="mt-1 text-sm text-primary">{ticket.topic_name || `Tópico #${ticket.topic_id}`}</p>
                   <h1 className="mt-3 text-2xl font-bold leading-tight tracking-tight">{ticket.title}</h1>
                   <p className="mt-4 whitespace-pre-wrap text-[15px] leading-relaxed text-foreground">{ticket.description}</p>
                   <div className="mt-6 flex flex-wrap gap-8 border-t border-border/70 pt-4 text-muted-foreground">
@@ -485,6 +529,34 @@ export function TicketDetailPage() {
           </>
         ) : null}
       </div>
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir ticket?</DialogTitle>
+            <DialogDescription>
+              Esta ação remove o ticket, comentários e anexos associados. Não poderá ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={deletingTicket}
+              onClick={() => setDeleteDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deletingTicket}
+              onClick={() => void onDeleteTicket()}
+            >
+              {deletingTicket ? 'Excluindo...' : 'Confirmar exclusão'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

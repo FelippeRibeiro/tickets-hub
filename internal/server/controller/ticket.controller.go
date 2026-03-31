@@ -43,6 +43,7 @@ func (tc *TicketController) SetupRoutes(server *http.ServeMux) {
 	server.Handle("GET /api/tickets/{id}", http.HandlerFunc(tc.GetTicket))
 	server.Handle("GET /api/tickets", middlewares.AuthMiddleware(http.HandlerFunc(tc.ListTickets), false))
 	server.Handle("POST /api/tickets", middlewares.AuthMiddleware(http.HandlerFunc(tc.CreateTicket), false))
+	server.Handle("DELETE /api/tickets/{id}", middlewares.AuthMiddleware(http.HandlerFunc(tc.DeleteTicket), false))
 }
 
 func (tc *TicketController) ticketAttachments(ticketID int) []model.TicketAttachment {
@@ -311,4 +312,48 @@ func (tc *TicketController) createTicketMultipart(w http.ResponseWriter, r *http
 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(full)
+}
+
+
+func (tc *TicketController) DeleteTicket(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	user, ok := r.Context().Value("user").(*utils.Claims)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	ticketID, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil || ticketID <= 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid ticket id"})
+		return
+	}
+
+	ticket, err := tc.ticketRepository.FindByID(ticketID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "ticket not found"})
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	if ticket.UserID != user.UserID && !user.IsAdmin {
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{"error": "only the ticket author or an admin can delete"})
+		return
+	}
+
+	err = tc.ticketRepository.DeleteTicket(ticketID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "ticket deleted successfully"})
 }

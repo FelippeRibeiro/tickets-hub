@@ -207,6 +207,13 @@ export function deleteProfileAvatar() {
   })
 }
 
+export function changeProfileName(name: string) {
+  return api<{ message: string }>('/api/me/name', {
+    method: 'PUT',
+    body: JSON.stringify({ name }),
+  })
+}
+
 export function getUsers() {
   return api<User[]>('/api/users')
 }
@@ -219,6 +226,12 @@ export function getTickets(topicId?: number) {
 
 export function getTicket(id: number) {
   return api<Ticket>(`/api/tickets/${id}`)
+}
+
+export function deleteTicket(id: number) {
+  return api<{ message: string }>(`/api/tickets/${id}`, {
+    method: 'DELETE',
+  })
 }
 
 export function createTicket(payload: {

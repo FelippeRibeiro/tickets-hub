@@ -38,6 +38,7 @@ func (uc *UserController) SetupRoutes(server *http.ServeMux) {
 	server.Handle("GET /api/me", middlewares.AuthMiddleware(http.HandlerFunc(uc.GetAuthUser), false))
 	server.Handle("POST /api/me/avatar", middlewares.AuthMiddleware(http.HandlerFunc(uc.UploadAvatar), false))
 	server.Handle("DELETE /api/me/avatar", middlewares.AuthMiddleware(http.HandlerFunc(uc.DeleteAvatar), false))
+	server.Handle("PUT /api/me/name", middlewares.AuthMiddleware(http.HandlerFunc(uc.ChangeName), false))
 	server.HandleFunc("GET /api/users/{id}/avatar", uc.ServeAvatar)
 	server.HandleFunc("POST /api/users", uc.CreateUser)
 	server.HandleFunc("POST /api/login", uc.Login)
@@ -319,5 +320,52 @@ func (uc *UserController) ServeAvatar(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "private, no-cache")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(data)
+}
+
+func (uc *UserController) ChangeName(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	user, ok := r.Context().Value("user").(*utils.Claims)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	userId := user.UserID;
+	type ChangeName struct {
+		Name string `json:"name"`
+	}
+	var newName ChangeName = ChangeName{}
+	err := json.NewDecoder(r.Body).Decode(&newName)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	newName.Name = strings.TrimSpace(newName.Name)
+	if newName.Name == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "name is empty"})
+		return
+	}
+	if len(newName.Name) > 100 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "name is too long"})
+		return
+	}
+	if len(newName.Name) < 3 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "name is too short"})
+		return
+	}
+
+	err = uc.userRepository.UpdateName(userId, newName.Name)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "name changed successfully"})
+
+
 }
 

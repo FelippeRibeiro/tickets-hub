@@ -97,3 +97,11 @@ func (ur *UserRepository) GetAvatar(userID int) (mime string, data []byte, err e
 	}
 	return m.String, b, nil
 }
+
+func (ur *UserRepository) UpdateName(userID int, name string) error {
+	_, err := ur.db.Exec(
+		`UPDATE users SET name = $1 WHERE id = $2`,
+		name, userID,
+	)
+	return err
+}
