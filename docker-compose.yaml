@@ -1,15 +1,15 @@
 services:
-  app:
-    build: .
-    container_name: ticket-app
-    volumes:
-      - ./.env:/app/.env
-    ports:
-      - "8080:8080"
-    depends_on:
-      - postgres
-    networks:
-      app-network:
+  # app:
+  #   build: .
+  #   container_name: ticket-app
+  #   volumes:
+  #     - ./.env:/app/.env
+  #   ports:
+  #     - "8080:8080"
+  #   depends_on:
+  #     - postgres
+  #   networks:
+  #     app-network:
 
   postgres:
     image: postgres:latest
@@ -23,6 +23,8 @@ services:
       - "5432:5432"
     networks:
       app-network:
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
 
 networks:
   app-network:
