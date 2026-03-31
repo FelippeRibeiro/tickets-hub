@@ -24,7 +24,14 @@ services:
     networks:
       app-network:
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+      # Aqui apontamos para o nome do volume antigo que você listou
+      - old_volume_march:/var/lib/postgresql/data
 
 networks:
   app-network:
+
+volumes:
+  # Declaramos o volume como externo para o Compose não tentar criar um novo
+  old_volume_march:
+    external: true
+    name: d1f70fe1896c0a95fe2c7530d77285206aa5eafa730674e6b6d580671502746a
