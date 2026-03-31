@@ -12,27 +12,22 @@ services:
   #     app-network:
 
   postgres:
-    # Mudamos de latest para 16 para evitar o erro de estrutura do pg_ctlcluster
-    image: postgres:16
+    image: postgres:17
     container_name: ticket-postgres
     restart: always
     environment:
       POSTGRES_DB: dev
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: root
-      PGDATA: /var/lib/postgresql/data
+    volumes:
+      - pgdata:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     networks:
       app-network:
-    volumes:
-      # Usando o volume de março como o ponto de montagem de dados
-      - old_volume_march:/var/lib/postgresql/data
 
 networks:
   app-network:
 
 volumes:
-  old_volume_march:
-    external: true
-    name: d1f70fe1896c0a95fe2c7530d77285206aa5eafa730674e6b6d580671502746a
+  pgdata:
