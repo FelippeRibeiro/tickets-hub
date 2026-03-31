@@ -1,18 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Heart, MessageCircle, Trash2 } from 'lucide-react';
-import { ApiError, createTicketComment, deleteComment, deleteTicket, getTicket, getTicketComments, getTicketLikes, likeTicket, uploadTicketAttachment, type Comment, unlikeTicket, type Ticket, type TicketAttachment } from '@/lib/api';
+import {
+  ApiError,
+  createTicketComment,
+  deleteComment,
+  deleteTicket,
+  getTicket,
+  getTicketComments,
+  getTicketLikes,
+  likeTicket,
+  uploadTicketAttachment,
+  type Comment,
+  unlikeTicket,
+  type Ticket,
+  type TicketAttachment,
+} from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { AttachmentPreview } from '@/components/attachment-preview';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { UserAvatar } from '@/components/user-avatar';
@@ -92,10 +99,8 @@ export function TicketDetailPage() {
   const commentsContainerRef = useRef<HTMLDivElement | null>(null);
   const COMMENT_PAGE_SIZE = 10;
 
-  const canUploadAttachments =
-    Boolean(user) && Boolean(ticket) && (user!.is_admin || user!.id === ticket!.user_id);
-  const canDeleteTicket =
-    Boolean(ticket?.is_owner);
+  const canUploadAttachments = Boolean(user) && Boolean(ticket) && (user!.is_admin || user!.id === ticket!.user_id);
+  const canDeleteTicket = Boolean(ticket?.is_owner);
 
   const commentsCountLabel = useMemo(() => {
     const count = ticket?.comments_count ?? comments.length;
@@ -225,12 +230,7 @@ export function TicketDetailPage() {
     }
     setSendingComment(true);
     try {
-      const created = await createTicketComment(
-        ticket.id,
-        trimmed,
-        commentFiles.length > 0 ? commentFiles : undefined,
-        anonymousComment,
-      );
+      const created = await createTicketComment(ticket.id, trimmed, commentFiles.length > 0 ? commentFiles : undefined, anonymousComment);
       setComments((prev) => [...prev, created]);
       setCommentText('');
       setCommentFiles([]);
@@ -297,35 +297,19 @@ export function TicketDetailPage() {
     if (a.mime_type.startsWith('image/')) {
       return (
         <AttachmentPreview key={a.id} attachment={a}>
-          <img
-            src={a.url}
-            alt={a.original_name}
-            className="max-h-72 w-full rounded-lg border border-border object-contain"
-            loading="lazy"
-          />
+          <img src={a.url} alt={a.original_name} className="max-h-72 w-full rounded-lg border border-border object-contain" loading="lazy" />
         </AttachmentPreview>
       );
     }
     if (a.mime_type.startsWith('video/')) {
       return (
         <AttachmentPreview key={a.id} attachment={a}>
-          <video
-            src={a.url}
-            controls
-            className="max-h-72 w-full rounded-lg border border-border bg-black/40"
-            preload="metadata"
-          />
+          <video src={a.url} controls className="max-h-72 w-full rounded-lg border border-border bg-black/40" preload="metadata" />
         </AttachmentPreview>
       );
     }
     return (
-      <a
-        key={a.id}
-        href={a.url}
-        className="text-sm text-primary underline"
-        target="_blank"
-        rel="noreferrer"
-      >
+      <a key={a.id} href={a.url} className="text-sm text-primary underline" target="_blank" rel="noreferrer">
         {a.original_name}
       </a>
     );
@@ -337,10 +321,7 @@ export function TicketDetailPage() {
         <Button type="button" variant="ghost" size="icon-sm" aria-label="Voltar" onClick={() => navigate(-1)}>
           <ArrowLeft className="size-4" />
         </Button>
-        <Link
-          to={user ? '/' : '/login'}
-          className="text-sm font-semibold hover:underline"
-        >
+        <Link to={user ? '/' : '/login'} className="text-sm font-semibold hover:underline">
           Ticket
         </Link>
       </header>
@@ -357,12 +338,7 @@ export function TicketDetailPage() {
           <>
             <article className="rounded-xl border border-border/70 bg-card/60 p-5 shadow-sm">
               <div className="flex gap-3">
-                <UserAvatar
-                  userId={ticket.user_id}
-                  name={ticket.user_name}
-                  hasAvatar={Boolean(ticket.user_has_avatar)}
-                  className="size-12"
-                />
+                <UserAvatar userId={ticket.user_id} name={ticket.user_name} hasAvatar={Boolean(ticket.user_has_avatar)} className="size-12" />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -374,13 +350,7 @@ export function TicketDetailPage() {
                       <p className="mt-1 text-sm text-primary">{ticket.topic_name || `Tópico #${ticket.topic_id}`}</p>
                     </div>
                     {canDeleteTicket ? (
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        className="shrink-0"
-                        onClick={() => setDeleteDialogOpen(true)}
-                      >
+                      <Button type="button" variant="destructive" size="sm" className="shrink-0" onClick={() => setDeleteDialogOpen(true)}>
                         <Trash2 className="size-4" />
                         Excluir
                       </Button>
@@ -421,9 +391,7 @@ export function TicketDetailPage() {
             {ticket.attachments && ticket.attachments.length > 0 ? (
               <section className="mt-6 space-y-3">
                 <h2 className="px-1 text-lg font-bold">Anexos</h2>
-                <div className="grid gap-4 sm:grid-cols-1">
-                  {ticket.attachments.map((a) => renderAttachmentMedia(a))}
-                </div>
+                <div className="grid gap-4 sm:grid-cols-1">{ticket.attachments.map((a) => renderAttachmentMedia(a))}</div>
               </section>
             ) : null}
 
@@ -431,20 +399,8 @@ export function TicketDetailPage() {
               <div className="mt-6 rounded-xl border border-border/70 bg-muted/20 p-4">
                 <p className="mb-2 text-sm font-medium">Adicionar imagem ou vídeo</p>
                 <p className="mb-3 text-xs text-muted-foreground">Até 1 GB por arquivo. Formatos de imagem e vídeo comuns.</p>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*,video/*"
-                  className="hidden"
-                  onChange={(e) => void onPickAttachmentFile(e)}
-                />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  disabled={uploadingFile}
-                  onClick={() => fileInputRef.current?.click()}
-                >
+                <input ref={fileInputRef} type="file" accept="image/*,video/*" className="hidden" onChange={(e) => void onPickAttachmentFile(e)} />
+                <Button type="button" variant="secondary" size="sm" disabled={uploadingFile} onClick={() => fileInputRef.current?.click()}>
                   {uploadingFile ? 'Enviando…' : 'Escolher arquivo'}
                 </Button>
                 {uploadError ? <p className="mt-2 text-sm text-destructive">{uploadError}</p> : null}
@@ -471,30 +427,16 @@ export function TicketDetailPage() {
                     />
                     {commentFiles.length > 0 ? (
                       <span className="text-xs text-muted-foreground">
-                        {commentFiles.length}{' '}
-                        {commentFiles.length === 1 ? 'arquivo' : 'arquivos'}
+                        {commentFiles.length} {commentFiles.length === 1 ? 'arquivo' : 'arquivos'}
                       </span>
                     ) : null}
                   </div>
                   <label className="flex items-start gap-3 rounded-lg border border-border/70 bg-background/60 p-3">
-                    <input
-                      type="checkbox"
-                      checked={anonymousComment}
-                      onChange={(e) => setAnonymousComment(e.target.checked)}
-                      className="mt-0.5 h-4 w-4 rounded border-border"
-                    />
-                    <span className="text-sm text-muted-foreground">
-                      Comentar anonimamente. Seu nome e foto nao serao exibidos neste comentario.
-                    </span>
+                    <input type="checkbox" checked={anonymousComment} onChange={(e) => setAnonymousComment(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-border" />
+                    <span className="text-sm text-muted-foreground">Comentar anonimamente. Seu nome e foto nao serao exibidos neste comentario.</span>
                   </label>
                   <div className="flex justify-end">
-                    <Button
-                      type="submit"
-                      disabled={
-                        sendingComment ||
-                        (!commentText.trim() && commentFiles.length === 0)
-                      }
-                    >
+                    <Button type="submit" disabled={sendingComment || (!commentText.trim() && commentFiles.length === 0)}>
                       {sendingComment ? 'Enviando...' : 'Comentar'}
                     </Button>
                   </div>
@@ -515,37 +457,20 @@ export function TicketDetailPage() {
                   comments.map((comment) => (
                     <article key={comment.id} className="rounded-xl border border-border bg-card p-3">
                       <div className="mb-2 flex items-center gap-2">
-                        <UserAvatar
-                          userId={comment.user_id}
-                          name={comment.user_name}
-                          hasAvatar={Boolean(comment.user_has_avatar)}
-                          size="sm"
-                        />
+                        <UserAvatar userId={comment.user_id} name={comment.user_name} hasAvatar={Boolean(comment.user_has_avatar)} size="sm" />
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold">{comment.user_name}</p>
                           <p className="text-xs text-muted-foreground">{formatDate(comment.created_at)}</p>
                         </div>
-                        {comment.is_owner ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="ml-auto text-destructive hover:text-destructive"
-                            onClick={() => setCommentToDelete(comment)}
-                          >
+                        {comment.is_owner || (user && user.is_admin) ? (
+                          <Button type="button" variant="ghost" size="sm" className="ml-auto text-destructive hover:text-destructive" onClick={() => setCommentToDelete(comment)}>
                             <Trash2 className="size-4" />
                             Excluir
                           </Button>
                         ) : null}
                       </div>
-                      {comment.comment ? (
-                        <p className="whitespace-pre-wrap text-sm leading-relaxed">{comment.comment}</p>
-                      ) : null}
-                      {comment.attachments && comment.attachments.length > 0 ? (
-                        <div className="mt-3 grid gap-3">
-                          {comment.attachments.map((a) => renderAttachmentMedia(a))}
-                        </div>
-                      ) : null}
+                      {comment.comment ? <p className="whitespace-pre-wrap text-sm leading-relaxed">{comment.comment}</p> : null}
+                      {comment.attachments && comment.attachments.length > 0 ? <div className="mt-3 grid gap-3">{comment.attachments.map((a) => renderAttachmentMedia(a))}</div> : null}
                     </article>
                   ))
                 )}
@@ -560,25 +485,13 @@ export function TicketDetailPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Excluir ticket?</DialogTitle>
-            <DialogDescription>
-              Esta ação remove o ticket, comentários e anexos associados. Não poderá ser desfeita.
-            </DialogDescription>
+            <DialogDescription>Esta ação remove o ticket, comentários e anexos associados. Não poderá ser desfeita.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={deletingTicket}
-              onClick={() => setDeleteDialogOpen(false)}
-            >
+            <Button type="button" variant="outline" disabled={deletingTicket} onClick={() => setDeleteDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={deletingTicket}
-              onClick={() => void onDeleteTicket()}
-            >
+            <Button type="button" variant="destructive" disabled={deletingTicket} onClick={() => void onDeleteTicket()}>
               {deletingTicket ? 'Excluindo...' : 'Confirmar exclusão'}
             </Button>
           </DialogFooter>
@@ -595,25 +508,13 @@ export function TicketDetailPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Excluir comentário?</DialogTitle>
-            <DialogDescription>
-              Esta ação remove o comentário e os anexos associados. Não poderá ser desfeita.
-            </DialogDescription>
+            <DialogDescription>Esta ação remove o comentário e os anexos associados. Não poderá ser desfeita.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={deletingComment}
-              onClick={() => setCommentToDelete(null)}
-            >
+            <Button type="button" variant="outline" disabled={deletingComment} onClick={() => setCommentToDelete(null)}>
               Cancelar
             </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={deletingComment}
-              onClick={() => void onDeleteComment()}
-            >
+            <Button type="button" variant="destructive" disabled={deletingComment} onClick={() => void onDeleteComment()}>
               {deletingComment ? 'Excluindo...' : 'Confirmar exclusão'}
             </Button>
           </DialogFooter>
