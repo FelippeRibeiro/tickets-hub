@@ -337,8 +337,8 @@ export function TicketDetailPage() {
         ) : ticket ? (
           <>
             <article className="rounded-xl border border-border/70 bg-card/60 p-5 shadow-sm">
-              <div className="flex gap-3">
-                <UserAvatar userId={ticket.user_id} name={ticket.user_name} hasAvatar={Boolean(ticket.user_has_avatar)} className="size-12" />
+              <div className="flex items-start gap-3">
+                <UserAvatar userId={ticket.user_id} name={ticket.user_name} hasAvatar={Boolean(ticket.user_has_avatar)} className="size-12 self-start" />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">

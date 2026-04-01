@@ -87,15 +87,15 @@ export function ComposeTicketDialog({ topics, onCreated }: Props) {
         Novo ticket
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md sm:max-w-md">
-        <form onSubmit={onSubmit}>
+        <DialogContent className="flex max-h-[calc(100svh-2rem)] max-w-md flex-col overflow-hidden p-0 sm:max-w-md">
+        <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
           <DialogHeader>
-            <DialogTitle>Novo ticket</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="px-4 pt-4">Novo ticket</DialogTitle>
+            <DialogDescription className="px-4">
               Escolha o tópico e descreva o que está acontecendo.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-2">
+          <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-4 py-2">
             {error ? (
               <p className="text-sm text-destructive" role="alert">
                 {error}
@@ -187,8 +187,8 @@ export function ComposeTicketDialog({ topics, onCreated }: Props) {
               </div>
             </label>
           </div>
-          <DialogFooter className="border-0 bg-transparent p-0 pt-2 sm:justify-end">
-            <Button type="submit" disabled={pending}>
+          <DialogFooter className="mt-2 sm:justify-end">
+            <Button type="submit" disabled={pending} className="w-full sm:w-auto">
               {pending ? 'Publicando…' : 'Publicar'}
             </Button>
           </DialogFooter>
