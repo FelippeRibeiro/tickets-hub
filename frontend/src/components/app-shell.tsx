@@ -2,6 +2,7 @@ import { Link, NavLink, Outlet } from 'react-router-dom'
 import { LogOut, Settings, Ticket, UserCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { NotificationsMenu } from '@/components/notifications-menu'
+import { NotificationToasts } from '@/components/notification-toasts'
 import { ProfileSettingsDialog } from '@/components/profile-settings-dialog'
 import { useAuth } from '@/contexts/auth-context'
 import { cn } from '@/lib/utils'
@@ -19,6 +20,7 @@ export function AppShell() {
 
   return (
     <div className="min-h-svh bg-background text-foreground">
+      <NotificationToasts />
       <div className="mx-auto flex min-h-svh max-w-6xl">
         <aside className="sticky top-0 hidden h-svh w-64 shrink-0 flex-col border-r border-border/70 bg-card/30 px-4 py-5 md:flex">
           <Link

@@ -36,7 +36,15 @@ function notificationText(type: 'like' | 'comment', actorName: string) {
 
 export function NotificationsMenu() {
   const navigate = useNavigate()
-  const { items, unreadCount, loading, connected, error, markRead, markAllRead } = useNotifications()
+  const {
+    items,
+    unreadCount,
+    loading,
+    connected,
+    error,
+    markRead,
+    markAllRead,
+  } = useNotifications()
   const [open, setOpen] = useState(false)
 
   const latestItems = useMemo(() => items.slice(0, 10), [items])

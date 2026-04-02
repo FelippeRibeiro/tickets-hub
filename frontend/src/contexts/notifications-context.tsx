@@ -23,12 +23,31 @@ type NotificationsState = {
   loading: boolean
   connected: boolean
   error: string | null
+  soundEnabled: boolean
+  toastEnabled: boolean
+  setSoundEnabled: (enabled: boolean) => void
+  setToastEnabled: (enabled: boolean) => void
+  transientItems: Notification[]
+  dismissTransient: (notificationId: number) => void
   refresh: () => Promise<void>
   markRead: (notificationId: number) => Promise<void>
   markAllRead: () => Promise<void>
 }
 
 const NotificationsContext = createContext<NotificationsState | null>(null)
+const SOUND_PREF_KEY = 'tickets-hub.notifications.sound'
+const TOAST_PREF_KEY = 'tickets-hub.notifications.toast'
+
+function readStoredPreference(key: string, fallback = true) {
+  if (typeof window === 'undefined') {
+    return fallback
+  }
+  const value = window.localStorage.getItem(key)
+  if (value === null) {
+    return fallback
+  }
+  return value === 'true'
+}
 
 function sortNotifications(items: Notification[]) {
   return [...items].sort(
@@ -43,7 +62,63 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false)
   const [connected, setConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [soundEnabled, setSoundEnabled] = useState(() => readStoredPreference(SOUND_PREF_KEY, true))
+  const [toastEnabled, setToastEnabled] = useState(() => readStoredPreference(TOAST_PREF_KEY, true))
+  const [transientItems, setTransientItems] = useState<Notification[]>([])
   const socketRef = useRef<WebSocket | null>(null)
+  const timeoutsRef = useRef<Record<number, number>>({})
+
+  const dismissTransient = useCallback((notificationId: number) => {
+    setTransientItems((prev) => prev.filter((item) => item.id !== notificationId))
+    const timeoutId = timeoutsRef.current[notificationId]
+    if (timeoutId) {
+      window.clearTimeout(timeoutId)
+      delete timeoutsRef.current[notificationId]
+    }
+  }, [])
+
+  const playNotificationSound = useCallback(() => {
+    if (typeof window === 'undefined' || !soundEnabled) {
+      return
+    }
+    try {
+      const AudioContextCtor = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+      if (!AudioContextCtor) {
+        return
+      }
+      const context = new AudioContextCtor()
+      const oscillator = context.createOscillator()
+      const gainNode = context.createGain()
+
+      oscillator.type = 'sine'
+      oscillator.frequency.setValueAtTime(880, context.currentTime)
+      oscillator.frequency.exponentialRampToValueAtTime(660, context.currentTime + 0.12)
+      gainNode.gain.setValueAtTime(0.001, context.currentTime)
+      gainNode.gain.exponentialRampToValueAtTime(0.08, context.currentTime + 0.02)
+      gainNode.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.28)
+
+      oscillator.connect(gainNode)
+      gainNode.connect(context.destination)
+      oscillator.start()
+      oscillator.stop(context.currentTime + 0.28)
+
+      void context.close().catch(() => undefined)
+    } catch {
+      /* audio may be blocked by browser autoplay policies */
+    }
+  }, [soundEnabled])
+
+  const showTransient = useCallback((notification: Notification) => {
+    setTransientItems((prev) => [notification, ...prev.filter((item) => item.id !== notification.id)].slice(0, 3))
+    const previousTimeout = timeoutsRef.current[notification.id]
+    if (previousTimeout) {
+      window.clearTimeout(previousTimeout)
+    }
+    timeoutsRef.current[notification.id] = window.setTimeout(() => {
+      setTransientItems((prev) => prev.filter((item) => item.id !== notification.id))
+      delete timeoutsRef.current[notification.id]
+    }, 5000)
+  }, [])
 
   const refresh = useCallback(async () => {
     if (!user) {
@@ -90,6 +165,20 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   }, [refresh])
 
   useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+    window.localStorage.setItem(SOUND_PREF_KEY, String(soundEnabled))
+  }, [soundEnabled])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+    window.localStorage.setItem(TOAST_PREF_KEY, String(toastEnabled))
+  }, [toastEnabled])
+
+  useEffect(() => {
     if (!user) {
       socketRef.current?.close()
       socketRef.current = null
@@ -131,6 +220,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
           return sortNotifications(next).slice(0, 20)
         })
         setUnreadCount((prev) => prev + 1)
+        playNotificationSound()
+        if (toastEnabled) {
+          showTransient(payload.notification)
+        }
       } catch {
         /* ignore invalid websocket payload */
       }
@@ -139,7 +232,14 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     return () => {
       socket.close()
     }
-  }, [user])
+  }, [playNotificationSound, showTransient, toastEnabled, user])
+
+  useEffect(() => {
+    return () => {
+      Object.values(timeoutsRef.current).forEach((timeoutId) => window.clearTimeout(timeoutId))
+      timeoutsRef.current = {}
+    }
+  }, [])
 
   const value = useMemo(
     () => ({
@@ -148,11 +248,30 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       loading,
       connected,
       error,
+      soundEnabled,
+      toastEnabled,
+      setSoundEnabled: (enabled: boolean) => setSoundEnabled(enabled),
+      setToastEnabled: (enabled: boolean) => setToastEnabled(enabled),
+      transientItems,
+      dismissTransient,
       refresh,
       markRead,
       markAllRead,
     }),
-    [items, unreadCount, loading, connected, error, refresh, markRead, markAllRead]
+    [
+      items,
+      unreadCount,
+      loading,
+      connected,
+      error,
+      soundEnabled,
+      toastEnabled,
+      transientItems,
+      dismissTransient,
+      refresh,
+      markRead,
+      markAllRead,
+    ]
   )
 
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>

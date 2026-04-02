@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { UserAvatar } from '@/components/user-avatar'
 import { useAuth } from '@/contexts/auth-context'
+import { useNotifications } from '@/contexts/notifications-context'
 import * as api from '@/lib/api'
 
 type ProfileSettingsDialogProps = {
@@ -30,6 +31,12 @@ export function ProfileSettingsDialog({
   trigger,
 }: ProfileSettingsDialogProps) {
   const { user, refresh } = useAuth()
+  const {
+    soundEnabled,
+    toastEnabled,
+    setSoundEnabled,
+    setToastEnabled,
+  } = useNotifications()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [open, setOpen] = useState(false)
   const [name, setName] = useState(user?.name ?? '')
@@ -184,6 +191,38 @@ export function ProfileSettingsDialog({
           {error ? (
             <p className="text-sm text-destructive">{error}</p>
           ) : null}
+          <div className="space-y-3 rounded-xl border border-border/70 bg-muted/20 p-4">
+            <div>
+              <p className="text-sm font-medium">Preferências de notificações</p>
+              <p className="text-xs text-muted-foreground">
+                Escolha como deseja receber os avisos enquanto usa a plataforma.
+              </p>
+            </div>
+            <label className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm">Som</p>
+                <p className="text-xs text-muted-foreground">Toca um alerta curto ao chegar notificação.</p>
+              </div>
+              <Input
+                type="checkbox"
+                checked={soundEnabled}
+                onChange={(e) => setSoundEnabled(e.target.checked)}
+                className="h-4 w-4 rounded border-border px-0 py-0"
+              />
+            </label>
+            <label className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm">Aviso na tela</p>
+                <p className="text-xs text-muted-foreground">Mostra um popup temporário com a nova notificação.</p>
+              </div>
+              <Input
+                type="checkbox"
+                checked={toastEnabled}
+                onChange={(e) => setToastEnabled(e.target.checked)}
+                className="h-4 w-4 rounded border-border px-0 py-0"
+              />
+            </label>
+          </div>
           <DialogFooter>
             <Button
               type="submit"
