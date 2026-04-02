@@ -37,6 +37,10 @@ type NotificationsState = {
 const NotificationsContext = createContext<NotificationsState | null>(null)
 const SOUND_PREF_KEY = 'tickets-hub.notifications.sound'
 const TOAST_PREF_KEY = 'tickets-hub.notifications.toast'
+const WS_PING_INTERVAL_MS = 25000
+const WS_RECONNECT_BASE_MS = 1000
+const WS_RECONNECT_MAX_MS = 10000
+const WS_MAX_RECONNECT_ATTEMPTS = 10
 
 function readStoredPreference(key: string, fallback = true) {
   if (typeof window === 'undefined') {
@@ -67,6 +71,9 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const [transientItems, setTransientItems] = useState<Notification[]>([])
   const socketRef = useRef<WebSocket | null>(null)
   const timeoutsRef = useRef<Record<number, number>>({})
+  const reconnectTimeoutRef = useRef<number | null>(null)
+  const pingIntervalRef = useRef<number | null>(null)
+  const reconnectAttemptsRef = useRef(0)
 
   const dismissTransient = useCallback((notificationId: number) => {
     setTransientItems((prev) => prev.filter((item) => item.id !== notificationId))
@@ -160,6 +167,111 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     setUnreadCount(0)
   }, [])
 
+  const clearSocketTimers = useCallback(() => {
+    if (reconnectTimeoutRef.current !== null) {
+      window.clearTimeout(reconnectTimeoutRef.current)
+      reconnectTimeoutRef.current = null
+    }
+    if (pingIntervalRef.current !== null) {
+      window.clearInterval(pingIntervalRef.current)
+      pingIntervalRef.current = null
+    }
+  }, [])
+
+  const closeSocket = useCallback(() => {
+    clearSocketTimers()
+    const socket = socketRef.current
+    socketRef.current = null
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.close()
+      return
+    }
+    if (socket && socket.readyState === WebSocket.CONNECTING) {
+      socket.close()
+    }
+  }, [clearSocketTimers])
+
+  const scheduleReconnect = useCallback(() => {
+    if (
+      !user ||
+      reconnectTimeoutRef.current !== null ||
+      reconnectAttemptsRef.current >= WS_MAX_RECONNECT_ATTEMPTS
+    ) {
+      return
+    }
+    const delay = Math.min(
+      WS_RECONNECT_BASE_MS * 2 ** reconnectAttemptsRef.current,
+      WS_RECONNECT_MAX_MS
+    )
+    reconnectTimeoutRef.current = window.setTimeout(() => {
+      reconnectTimeoutRef.current = null
+      reconnectAttemptsRef.current += 1
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      const socket = new WebSocket(`${protocol}//${window.location.host}/api/notifications/ws`)
+      socketRef.current = socket
+
+      socket.onopen = () => {
+        reconnectAttemptsRef.current = 0
+        setConnected(true)
+        if (pingIntervalRef.current !== null) {
+          window.clearInterval(pingIntervalRef.current)
+        }
+        pingIntervalRef.current = window.setInterval(() => {
+          if (socket.readyState === WebSocket.OPEN) {
+            try {
+              socket.send('ping')
+            } catch {
+              /* ignore ping errors; reconnect will handle close */
+            }
+          }
+        }, WS_PING_INTERVAL_MS)
+      }
+
+      socket.onclose = () => {
+        setConnected(false)
+        if (socketRef.current === socket) {
+          socketRef.current = null
+        }
+        if (pingIntervalRef.current !== null) {
+          window.clearInterval(pingIntervalRef.current)
+          pingIntervalRef.current = null
+        }
+        scheduleReconnect()
+      }
+
+      socket.onerror = () => {
+        setConnected(false)
+        if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+          socket.close()
+        }
+      }
+
+      socket.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data) as {
+            type?: string
+            notification?: Notification
+          }
+          if (payload.type !== 'notification.created' || !payload.notification) {
+            return
+          }
+
+          setItems((prev) => {
+            const next = [payload.notification!, ...prev.filter((item) => item.id !== payload.notification!.id)]
+            return sortNotifications(next).slice(0, 20)
+          })
+          setUnreadCount((prev) => prev + 1)
+          playNotificationSound()
+          if (toastEnabled) {
+            showTransient(payload.notification)
+          }
+        } catch {
+          /* ignore invalid websocket payload */
+        }
+      }
+    }, delay)
+  }, [playNotificationSound, showTransient, toastEnabled, user])
+
   useEffect(() => {
     void refresh()
   }, [refresh])
@@ -180,66 +292,50 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!user) {
-      socketRef.current?.close()
-      socketRef.current = null
+      closeSocket()
       setConnected(false)
+      reconnectAttemptsRef.current = 0
       return
     }
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const socket = new WebSocket(`${protocol}//${window.location.host}/api/notifications/ws`)
-    socketRef.current = socket
+    scheduleReconnect()
 
-    socket.onopen = () => {
-      setConnected(true)
-    }
-
-    socket.onclose = () => {
-      setConnected(false)
-      if (socketRef.current === socket) {
-        socketRef.current = null
+    const reconnectIfNeeded = () => {
+      if (!socketRef.current || socketRef.current.readyState === WebSocket.CLOSED) {
+        scheduleReconnect()
       }
     }
 
-    socket.onerror = () => {
-      setConnected(false)
-    }
-
-    socket.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data) as {
-          type?: string
-          notification?: Notification
-        }
-        if (payload.type !== 'notification.created' || !payload.notification) {
-          return
-        }
-
-        setItems((prev) => {
-          const next = [payload.notification!, ...prev.filter((item) => item.id !== payload.notification!.id)]
-          return sortNotifications(next).slice(0, 20)
-        })
-        setUnreadCount((prev) => prev + 1)
-        playNotificationSound()
-        if (toastEnabled) {
-          showTransient(payload.notification)
-        }
-      } catch {
-        /* ignore invalid websocket payload */
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        reconnectIfNeeded()
+        void refresh()
       }
     }
+
+    const onOnline = () => {
+      reconnectAttemptsRef.current = 0
+      reconnectIfNeeded()
+      void refresh()
+    }
+
+    window.addEventListener('online', onOnline)
+    document.addEventListener('visibilitychange', onVisibilityChange)
 
     return () => {
-      socket.close()
+      window.removeEventListener('online', onOnline)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      closeSocket()
     }
-  }, [playNotificationSound, showTransient, toastEnabled, user])
+  }, [closeSocket, refresh, scheduleReconnect, user])
 
   useEffect(() => {
     return () => {
+      closeSocket()
       Object.values(timeoutsRef.current).forEach((timeoutId) => window.clearTimeout(timeoutId))
       timeoutsRef.current = {}
     }
-  }, [])
+  }, [closeSocket])
 
   const value = useMemo(
     () => ({

@@ -129,6 +129,47 @@ func (cc *CommentController) notifyTicketOwner(ticketID int, actorID int, commen
 	cc.hub.BroadcastNotification(ticket.UserID, *notification)
 }
 
+func (cc *CommentController) notifyPriorParticipants(ticketID int, actorID int, comment *model.CreateComment, createdComment *model.CommentWithUserName) {
+	if cc.notificationRepository == nil || cc.hub == nil || createdComment == nil {
+		return
+	}
+
+	ticket, err := cc.ticketRepository.FindByID(ticketID)
+	if err != nil {
+		return
+	}
+
+	excludeUserIDs := []int{actorID}
+	if ticket.UserID > 0 {
+		excludeUserIDs = append(excludeUserIDs, ticket.UserID)
+	}
+
+	participantIDs, err := cc.commentRepository.ListPriorParticipantUserIDs(ticketID, createdComment.CommentId, excludeUserIDs)
+	if err != nil || len(participantIDs) == 0 {
+		return
+	}
+
+	var notificationCommentID *int
+	if createdComment.CommentId > 0 {
+		notificationCommentID = &createdComment.CommentId
+	}
+
+	for _, participantID := range participantIDs {
+		notification, err := cc.notificationRepository.Create(
+			participantID,
+			"participant_comment",
+			ticketID,
+			&actorID,
+			comment != nil && comment.IsAnonymous,
+			notificationCommentID,
+		)
+		if err != nil || notification == nil {
+			continue
+		}
+		cc.hub.BroadcastNotification(participantID, *notification)
+	}
+}
+
 func (cc *CommentController) ListComments(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	user, _ := r.Context().Value("user").(*utils.Claims)
@@ -256,6 +297,7 @@ func (cc *CommentController) CreateComment(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	cc.notifyTicketOwner(id, user.UserID, &comment, created)
+	cc.notifyPriorParticipants(id, user.UserID, &comment, created)
 	setCommentOwner(created, user)
 	anonymizeCommentAuthor(created)
 
@@ -338,6 +380,7 @@ func (cc *CommentController) createCommentMultipart(w http.ResponseWriter, r *ht
 		}
 	}
 	cc.notifyTicketOwner(ticketID, user.UserID, &in, created)
+	cc.notifyPriorParticipants(ticketID, user.UserID, &in, created)
 	setCommentOwner(created, user)
 	anonymizeCommentAuthor(created)
 

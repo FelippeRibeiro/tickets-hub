@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"strconv"
+
 	"github.com/FelippeRibeiro/tickets-hub/internal/model"
 	"github.com/jmoiron/sqlx"
 )
@@ -71,4 +73,27 @@ func (cr *CommentRepository) ListByTicket(ticketID int, limit int, offset int) (
 func (cr *CommentRepository) DeleteByID(commentID int) error {
 	_, err := cr.db.Exec(`DELETE FROM comments WHERE id = $1`, commentID)
 	return err
+}
+
+func (cr *CommentRepository) ListPriorParticipantUserIDs(ticketID int, beforeCommentID int, excludeUserIDs []int) ([]int, error) {
+	userIDs := []int{}
+	query := `
+		SELECT DISTINCT c.user_id
+		FROM comments c
+		WHERE c.ticket_id = $1
+			AND c.id < $2
+			AND c.user_id IS NOT NULL
+	`
+
+	args := []any{ticketID, beforeCommentID}
+	for i, userID := range excludeUserIDs {
+		query += ` AND c.user_id != $` + strconv.Itoa(i+3)
+		args = append(args, userID)
+	}
+
+	err := cr.db.Select(&userIDs, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	return userIDs, nil
 }

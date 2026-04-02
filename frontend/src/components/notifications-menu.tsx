@@ -27,7 +27,10 @@ function formatRelativeDate(iso: string) {
   }
 }
 
-function notificationText(type: 'like' | 'comment', actorName: string) {
+function notificationText(type: 'like' | 'comment' | 'participant_comment', actorName: string) {
+  if (type === 'participant_comment') {
+    return `${actorName} também comentou na publicação`
+  }
   if (type === 'comment') {
     return `${actorName} comentou no seu ticket`
   }

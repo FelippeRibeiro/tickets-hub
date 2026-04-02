@@ -4,7 +4,10 @@ import { Button } from '@/components/ui/button'
 import { UserAvatar } from '@/components/user-avatar'
 import { useNotifications } from '@/contexts/notifications-context'
 
-function toastText(type: 'like' | 'comment', actorName: string) {
+function toastText(type: 'like' | 'comment' | 'participant_comment', actorName: string) {
+  if (type === 'participant_comment') {
+    return `${actorName} também comentou na publicação`
+  }
   if (type === 'comment') {
     return `${actorName} comentou no seu ticket`
   }

@@ -128,7 +128,7 @@ export type LikeSummary = {
 export type Notification = {
   id: number
   user_id: number
-  type: 'like' | 'comment'
+  type: 'like' | 'comment' | 'participant_comment'
   ticket_id: number
   actor_id?: number
   actor_name: string

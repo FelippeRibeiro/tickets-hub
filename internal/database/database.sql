@@ -113,7 +113,7 @@ ALTER TABLE comments ADD COLUMN IF NOT EXISTS is_anonymous BOOLEAN DEFAULT FALSE
 CREATE TABLE IF NOT EXISTS notifications (
     id SERIAL PRIMARY KEY,
     user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    type TEXT NOT NULL CHECK (type IN ('like', 'comment')),
+    type TEXT NOT NULL CHECK (type IN ('like', 'comment', 'participant_comment')),
     ticket_id INT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
     actor_id INT REFERENCES users(id) ON DELETE SET NULL,
     actor_is_anonymous BOOLEAN NOT NULL DEFAULT FALSE,
