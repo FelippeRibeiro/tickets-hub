@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MessageCircle, Heart } from 'lucide-react';
+import { ArrowUpDown, MessageCircle, Heart } from 'lucide-react';
 import { ApiError, getTickets, getTopics, likeTicket, unlikeTicket, type Ticket, type Topic } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
 import { ComposeTicketDialog } from '@/components/compose-ticket-dialog';
@@ -8,6 +8,7 @@ import { CreateTopicDialog } from '@/components/create-topic-dialog';
 import { TicketFeedAttachments } from '@/components/ticket-feed-attachments';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { UserAvatar } from '@/components/user-avatar';
 import { cn } from '@/lib/utils';
@@ -23,11 +24,20 @@ function formatDate(iso: string) {
   }
 }
 
+const sortLabels = {
+  created_at_desc: 'Data de publicação',
+  likes_desc: 'Mais curtidos',
+  likes_asc: 'Menos curtidos',
+  comments_desc: 'Mais comentados',
+  comments_asc: 'Menos comentados',
+} as const;
+
 export function HomePage() {
   const { user } = useAuth();
   const [topics, setTopics] = useState<Topic[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [topicFilter, setTopicFilter] = useState<number | null>(null);
+  const [sortBy, setSortBy] = useState<'created_at_desc' | 'likes_desc' | 'likes_asc' | 'comments_desc' | 'comments_asc'>('created_at_desc');
   const [likedByTicket, setLikedByTicket] = useState<Record<number, boolean>>({});
   const [likesByTicket, setLikesByTicket] = useState<Record<number, number>>({});
   const [pendingLikeByTicket, setPendingLikeByTicket] = useState<Record<number, boolean>>({});
@@ -76,6 +86,32 @@ export function HomePage() {
     setLikedByTicket(Object.fromEntries(tickets.map((t) => [t.id, Boolean(t.liked)])));
     setLikesByTicket(Object.fromEntries(tickets.map((t) => [t.id, t.likes_count ?? 0])));
   }, [tickets]);
+
+  const sortedTickets = useMemo(() => {
+    const list = [...tickets];
+
+    const getLikesCount = (ticket: Ticket) => likesByTicket[ticket.id] ?? ticket.likes_count ?? 0;
+    const getCommentsCount = (ticket: Ticket) => ticket.comments_count ?? 0;
+    const getCreatedAt = (ticket: Ticket) => new Date(ticket.created_at).getTime() || 0;
+
+    list.sort((a, b) => {
+      switch (sortBy) {
+        case 'likes_desc':
+          return getLikesCount(b) - getLikesCount(a) || getCreatedAt(b) - getCreatedAt(a);
+        case 'likes_asc':
+          return getLikesCount(a) - getLikesCount(b) || getCreatedAt(b) - getCreatedAt(a);
+        case 'comments_desc':
+          return getCommentsCount(b) - getCommentsCount(a) || getCreatedAt(b) - getCreatedAt(a);
+        case 'comments_asc':
+          return getCommentsCount(a) - getCommentsCount(b) || getCreatedAt(b) - getCreatedAt(a);
+        case 'created_at_desc':
+        default:
+          return getCreatedAt(b) - getCreatedAt(a);
+      }
+    });
+
+    return list;
+  }, [likesByTicket, sortBy, tickets]);
 
   const refreshFeed = useCallback(() => {
     void loadTickets();
@@ -136,6 +172,30 @@ export function HomePage() {
         </div>
       </div>
 
+      <div className="px-4 py-2">
+        <div className="flex justify-end">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs text-muted-foreground">
+                  <ArrowUpDown className="size-3.5" />
+                  {sortLabels[sortBy]}
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end" className="min-w-44">
+              <DropdownMenuRadioGroup value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
+                <DropdownMenuRadioItem value="created_at_desc">Data de publicação</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="likes_desc">Mais curtidos</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="likes_asc">Menos curtidos</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="comments_desc">Mais comentados</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="comments_asc">Menos comentados</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
       <div className="p-3">
         {error ? (
           <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-center text-sm text-destructive">{error}</div>
@@ -151,7 +211,7 @@ export function HomePage() {
         ) : tickets.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border/70 p-10 text-center text-sm text-muted-foreground">Nenhum ticket ainda. Seja o primeiro a publicar.</div>
         ) : (
-          tickets.map((t) => (
+          sortedTickets.map((t) => (
             <Link key={t.id} to={`/ticket/${t.id}`} className="mb-3 block rounded-xl border border-border/70 bg-card/60 px-4 py-3 shadow-sm transition-colors hover:bg-muted/30">
               <div className="flex gap-3">
                 <UserAvatar
