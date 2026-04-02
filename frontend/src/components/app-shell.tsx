@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { LogOut, Settings, Ticket, UserCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { NotificationsMenu } from '@/components/notifications-menu'
 import { ProfileSettingsDialog } from '@/components/profile-settings-dialog'
 import { useAuth } from '@/contexts/auth-context'
 import { cn } from '@/lib/utils'
@@ -41,6 +42,7 @@ export function AppShell() {
             ) : null}
           </nav>
           <div className="mt-auto space-y-3 rounded-xl border border-border/70 bg-muted/20 p-3">
+            <NotificationsMenu />
             {user ? (
               <ProfileSettingsDialog
                 trigger={
@@ -73,6 +75,7 @@ export function AppShell() {
               Tickets Hub
             </Link>
             <div className="flex items-center gap-2">
+              <NotificationsMenu />
               {user ? (
                 <ProfileSettingsDialog
                   trigger={

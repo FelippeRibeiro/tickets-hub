@@ -11,6 +11,7 @@ import (
 	"github.com/FelippeRibeiro/tickets-hub/internal/repository"
 	"github.com/FelippeRibeiro/tickets-hub/internal/server/controller"
 	"github.com/FelippeRibeiro/tickets-hub/internal/server/middlewares"
+	"github.com/FelippeRibeiro/tickets-hub/internal/server/realtime"
 )
 
 func Server() {
@@ -42,13 +43,16 @@ func Server() {
 	likeRepository := repository.NewLikeRepository(db)
 	attachmentRepository := repository.NewAttachmentRepository(db)
 	commentAttachmentRepository := repository.NewCommentAttachmentRepository(db)
+	notificationRepository := repository.NewNotificationRepository(db)
+	hub := realtime.NewHub()
 
 	userController := controller.NewUserController(userRepository)
 	topicController := controller.NewTopicController(topicRepository)
 	ticketController := controller.NewTicketController(ticketRepository, topicRepository, attachmentRepository, uploadRoot)
-	commentController := controller.NewCommentController(commentRepository, ticketRepository, commentAttachmentRepository, uploadRoot)
-	likeController := controller.NewLikeController(likeRepository, ticketRepository)
+	commentController := controller.NewCommentController(commentRepository, ticketRepository, commentAttachmentRepository, notificationRepository, hub, uploadRoot)
+	likeController := controller.NewLikeController(likeRepository, ticketRepository, notificationRepository, hub)
 	attachmentController := controller.NewAttachmentController(ticketRepository, attachmentRepository, commentAttachmentRepository, uploadRoot)
+	notificationController := controller.NewNotificationController(notificationRepository, hub)
 
 	topicController.SetupRoutes(server)
 	userController.SetupRoutes(server)
@@ -56,6 +60,7 @@ func Server() {
 	attachmentController.SetupRoutes(server)
 	commentController.SetupRoutes(server)
 	likeController.SetupRoutes(server)
+	notificationController.SetupRoutes(server)
 
 	staticDir := "./frontend/dist"
 	server.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

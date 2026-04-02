@@ -125,6 +125,27 @@ export type LikeSummary = {
   liked: boolean
 }
 
+export type Notification = {
+  id: number
+  user_id: number
+  type: 'like' | 'comment'
+  ticket_id: number
+  actor_id?: number
+  actor_name: string
+  actor_has_avatar: boolean
+  actor_is_anonymous: boolean
+  comment_id?: number
+  comment_preview?: string
+  ticket_title: string
+  read_at?: string | null
+  created_at: string
+}
+
+export type NotificationsResponse = {
+  items: Notification[]
+  unread_count: number
+}
+
 export function getHealth() {
   return api<{ ok: boolean }>('/health')
 }
@@ -331,6 +352,24 @@ export function deleteComment(commentId: number) {
 
 export function getTicketLikes(ticketId: number) {
   return api<LikeSummary>(`/api/tickets/${ticketId}/likes`)
+}
+
+export function getNotifications(params?: { limit?: number; offset?: number }) {
+  const limit = params?.limit ?? 20
+  const offset = params?.offset ?? 0
+  return api<NotificationsResponse>(`/api/notifications?limit=${limit}&offset=${offset}`)
+}
+
+export function markNotificationRead(notificationId: number) {
+  return api<{ message: string }>(`/api/notifications/${notificationId}/read`, {
+    method: 'POST',
+  })
+}
+
+export function markAllNotificationsRead() {
+  return api<{ message: string }>('/api/notifications/read-all', {
+    method: 'POST',
+  })
 }
 
 export function likeTicket(ticketId: number) {

@@ -9,18 +9,28 @@ import (
 
 	"github.com/FelippeRibeiro/tickets-hub/internal/repository"
 	"github.com/FelippeRibeiro/tickets-hub/internal/server/middlewares"
+	"github.com/FelippeRibeiro/tickets-hub/internal/server/realtime"
 	"github.com/FelippeRibeiro/tickets-hub/pkg/utils"
 )
 
 type LikeController struct {
-	likeRepository   *repository.LikeRepository
-	ticketRepository *repository.TicketRepository
+	likeRepository         *repository.LikeRepository
+	ticketRepository       *repository.TicketRepository
+	notificationRepository *repository.NotificationRepository
+	hub                    *realtime.Hub
 }
 
-func NewLikeController(likeRepository *repository.LikeRepository, ticketRepository *repository.TicketRepository) *LikeController {
+func NewLikeController(
+	likeRepository *repository.LikeRepository,
+	ticketRepository *repository.TicketRepository,
+	notificationRepository *repository.NotificationRepository,
+	hub *realtime.Hub,
+) *LikeController {
 	return &LikeController{
-		likeRepository:   likeRepository,
-		ticketRepository: ticketRepository,
+		likeRepository:         likeRepository,
+		ticketRepository:       ticketRepository,
+		notificationRepository: notificationRepository,
+		hub:                    hub,
 	}
 }
 
@@ -89,6 +99,17 @@ func (lc *LikeController) Like(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
+
+	if lc.notificationRepository != nil && lc.hub != nil {
+		if ticket, err := lc.ticketRepository.FindByID(ticketID); err == nil && ticket.UserID > 0 && ticket.UserID != user.UserID {
+			actorID := user.UserID
+			notification, err := lc.notificationRepository.Create(ticket.UserID, "like", ticketID, &actorID, false, nil)
+			if err == nil && notification != nil {
+				lc.hub.BroadcastNotification(ticket.UserID, *notification)
+			}
+		}
+	}
+
 	summary, err := lc.likeRepository.Summary(user.UserID, ticketID)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

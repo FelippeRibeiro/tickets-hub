@@ -15,14 +15,17 @@ import (
 	"github.com/FelippeRibeiro/tickets-hub/internal/model"
 	"github.com/FelippeRibeiro/tickets-hub/internal/repository"
 	"github.com/FelippeRibeiro/tickets-hub/internal/server/middlewares"
+	"github.com/FelippeRibeiro/tickets-hub/internal/server/realtime"
 	"github.com/FelippeRibeiro/tickets-hub/internal/server/upload"
 	"github.com/FelippeRibeiro/tickets-hub/pkg/utils"
 )
 
 type CommentController struct {
-	commentRepository         *repository.CommentRepository
-	ticketRepository          *repository.TicketRepository
+	commentRepository           *repository.CommentRepository
+	ticketRepository            *repository.TicketRepository
 	commentAttachmentRepository *repository.CommentAttachmentRepository
+	notificationRepository      *repository.NotificationRepository
+	hub                         *realtime.Hub
 	uploadRoot                  string
 }
 
@@ -30,12 +33,16 @@ func NewCommentController(
 	commentRepository *repository.CommentRepository,
 	ticketRepository *repository.TicketRepository,
 	commentAttachmentRepository *repository.CommentAttachmentRepository,
+	notificationRepository *repository.NotificationRepository,
+	hub *realtime.Hub,
 	uploadRoot string,
 ) *CommentController {
 	return &CommentController{
 		commentRepository:           commentRepository,
-		ticketRepository:          ticketRepository,
+		ticketRepository:            ticketRepository,
 		commentAttachmentRepository: commentAttachmentRepository,
+		notificationRepository:      notificationRepository,
+		hub:                         hub,
 		uploadRoot:                  uploadRoot,
 	}
 }
@@ -90,6 +97,36 @@ func setCommentOwner(comment *model.CommentWithUserName, user *utils.Claims) {
 		return
 	}
 	comment.IsOwner = comment.UserId == user.UserID || user.IsAdmin
+}
+
+func (cc *CommentController) notifyTicketOwner(ticketID int, actorID int, comment *model.CreateComment, createdComment *model.CommentWithUserName) {
+	if cc.notificationRepository == nil || cc.hub == nil || createdComment == nil {
+		return
+	}
+
+	ticket, err := cc.ticketRepository.FindByID(ticketID)
+	if err != nil || ticket.UserID <= 0 || ticket.UserID == actorID {
+		return
+	}
+
+	var notificationCommentID *int
+	if createdComment.CommentId > 0 {
+		notificationCommentID = &createdComment.CommentId
+	}
+
+	notification, err := cc.notificationRepository.Create(
+		ticket.UserID,
+		"comment",
+		ticketID,
+		&actorID,
+		comment != nil && comment.IsAnonymous,
+		notificationCommentID,
+	)
+	if err != nil || notification == nil {
+		return
+	}
+
+	cc.hub.BroadcastNotification(ticket.UserID, *notification)
 }
 
 func (cc *CommentController) ListComments(w http.ResponseWriter, r *http.Request) {
@@ -218,6 +255,7 @@ func (cc *CommentController) CreateComment(w http.ResponseWriter, r *http.Reques
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
+	cc.notifyTicketOwner(id, user.UserID, &comment, created)
 	setCommentOwner(created, user)
 	anonymizeCommentAuthor(created)
 
@@ -299,6 +337,7 @@ func (cc *CommentController) createCommentMultipart(w http.ResponseWriter, r *ht
 			}
 		}
 	}
+	cc.notifyTicketOwner(ticketID, user.UserID, &in, created)
 	setCommentOwner(created, user)
 	anonymizeCommentAuthor(created)
 
