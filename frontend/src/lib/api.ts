@@ -100,6 +100,13 @@ export type Ticket = {
   attachments?: TicketAttachment[]
 }
 
+export type LinkPreview = {
+  url: string
+  host: string
+  title: string
+  description?: string
+}
+
 
 export type Comment = {
   id: number
@@ -257,6 +264,11 @@ export function getTickets(topicId?: number, options?: { mine?: boolean }) {
 
 export function getTicket(id: number) {
   return api<Ticket>(`/api/tickets/${id}`)
+}
+
+export function getLinkPreview(url: string) {
+  const params = new URLSearchParams({ url })
+  return api<LinkPreview>(`/api/link-preview?${params.toString()}`)
 }
 
 export function deleteTicket(id: number) {

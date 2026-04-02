@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Heart, MessageCircle, Trash2 } from 'lucide-react';
 import {
@@ -19,6 +19,7 @@ import {
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { AttachmentPreview } from '@/components/attachment-preview';
+import { LinkPreviewCard } from '@/components/link-preview-card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -69,6 +70,42 @@ function normalizeCommentsPage(payload: unknown, fallbackLimit = 10, fallbackOff
   };
 }
 
+const urlPattern = /https?:\/\/[^\s<>"'`]+/gi;
+
+function extractFirstURL(text: string) {
+  return text.match(urlPattern)?.[0] ?? null;
+}
+
+function renderTextWithLinks(text: string) {
+  const matches = Array.from(text.matchAll(urlPattern));
+  if (matches.length === 0) {
+    return text;
+  }
+
+  const nodes: ReactNode[] = [];
+  let lastIndex = 0;
+
+  matches.forEach((match, index) => {
+    const url = match[0];
+    const start = match.index ?? 0;
+    if (start > lastIndex) {
+      nodes.push(text.slice(lastIndex, start));
+    }
+    nodes.push(
+      <a key={`${url}-${index}`} href={url} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4 break-all">
+        {url}
+      </a>,
+    );
+    lastIndex = start + url.length;
+  });
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  return nodes;
+}
+
 export function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -106,6 +143,7 @@ export function TicketDetailPage() {
     const count = ticket?.comments_count ?? comments.length;
     return `${count} comentário${count === 1 ? '' : 's'}`;
   }, [ticket?.comments_count, comments.length]);
+  const ticketLink = useMemo(() => (ticket ? extractFirstURL(ticket.description) : null), [ticket]);
 
   async function loadCommentsPage(targetTicketID: number, offset: number) {
     if (loadingComments) {
@@ -357,7 +395,10 @@ export function TicketDetailPage() {
                     ) : null}
                   </div>
                   <h1 className="mt-3 text-2xl font-bold leading-tight tracking-tight">{ticket.title}</h1>
-                  <p className="mt-4 whitespace-pre-wrap wrap-anywhere text-[15px] leading-relaxed text-foreground">{ticket.description}</p>
+                  <p className="mt-4 whitespace-pre-wrap wrap-anywhere text-[15px] leading-relaxed text-foreground">
+                    {renderTextWithLinks(ticket.description)}
+                  </p>
+                  {ticketLink ? <LinkPreviewCard url={ticketLink} /> : null}
                   <div className="mt-6 flex flex-wrap gap-8 border-t border-border/70 pt-4 text-muted-foreground">
                     {user ? (
                       <button
@@ -473,7 +514,11 @@ export function TicketDetailPage() {
                           </Button>
                         ) : null}
                       </div>
-                      {comment.comment ? <p className="whitespace-pre-wrap wrap-anywhere text-sm leading-relaxed">{comment.comment}</p> : null}
+                      {comment.comment ? (
+                        <p className="whitespace-pre-wrap wrap-anywhere text-sm leading-relaxed">
+                          {renderTextWithLinks(comment.comment)}
+                        </p>
+                      ) : null}
                       {comment.attachments && comment.attachments.length > 0 ? <div className="mt-3 grid gap-3">{comment.attachments.map((a) => renderAttachmentMedia(a))}</div> : null}
                     </article>
                   ))

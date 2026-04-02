@@ -53,6 +53,7 @@ func Server() {
 	likeController := controller.NewLikeController(likeRepository, ticketRepository, notificationRepository, hub)
 	attachmentController := controller.NewAttachmentController(ticketRepository, attachmentRepository, commentAttachmentRepository, uploadRoot)
 	notificationController := controller.NewNotificationController(notificationRepository, hub)
+	linkPreviewController := controller.NewLinkPreviewController()
 
 	topicController.SetupRoutes(server)
 	userController.SetupRoutes(server)
@@ -61,6 +62,7 @@ func Server() {
 	commentController.SetupRoutes(server)
 	likeController.SetupRoutes(server)
 	notificationController.SetupRoutes(server)
+	linkPreviewController.SetupRoutes(server)
 
 	staticDir := "./frontend/dist"
 	server.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
