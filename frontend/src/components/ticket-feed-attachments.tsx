@@ -17,7 +17,7 @@ function FeedThumb({ a }: { a: TicketAttachment }) {
         <img
           src={a.url}
           alt={a.original_name}
-          className="h-14 max-w-[120px] rounded-md border border-border/60 object-cover"
+          className="h-18 max-w-[148px] rounded-md border border-border/60 object-cover"
           loading="lazy"
         />
       </AttachmentPreview>
@@ -28,7 +28,7 @@ function FeedThumb({ a }: { a: TicketAttachment }) {
     return (
       <AttachmentPreview attachment={a}>
         <div
-          className="relative h-14 w-[104px] shrink-0 overflow-hidden rounded-md border border-border/60 bg-black/40"
+          className="relative h-18 w-[132px] shrink-0 overflow-hidden rounded-md border border-border/60 bg-black/40"
           onMouseEnter={() => {
             void videoRef.current?.play()
           }}
@@ -55,7 +55,7 @@ function FeedThumb({ a }: { a: TicketAttachment }) {
   }
 
   return (
-    <span className="flex h-14 max-w-[100px] items-center truncate rounded-md border border-border/60 bg-muted/30 px-1.5 text-[10px] text-muted-foreground">
+    <span className="flex h-18 max-w-[118px] items-center truncate rounded-md border border-border/60 bg-muted/30 px-2 text-[10px] text-muted-foreground">
       {a.original_name}
     </span>
   )
@@ -74,7 +74,7 @@ export function TicketFeedAttachments({ attachments }: Props) {
         <FeedThumb key={a.id} a={a} />
       ))}
       {rest > 0 ? (
-        <span className="flex h-14 min-w-9 items-center justify-center rounded-md border border-border/70 bg-muted/40 px-2 text-xs font-medium text-muted-foreground tabular-nums">
+        <span className="flex h-18 min-w-10 items-center justify-center rounded-md border border-border/70 bg-muted/40 px-2 text-xs font-medium text-muted-foreground tabular-nums">
           +{rest}
         </span>
       ) : null}

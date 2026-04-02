@@ -429,7 +429,11 @@ export function TicketDetailPage() {
                       <span className="text-xs text-muted-foreground">
                         {commentFiles.length} {commentFiles.length === 1 ? 'arquivo' : 'arquivos'}
                       </span>
-                    ) : null}
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        Você pode selecionar várias mídias de uma vez.
+                      </span>
+                    )}
                   </div>
                   <label className="flex items-start gap-3 rounded-lg border border-border/70 bg-background/60 p-3">
                     <input type="checkbox" checked={anonymousComment} onChange={(e) => setAnonymousComment(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-border" />

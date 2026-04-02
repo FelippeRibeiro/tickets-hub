@@ -258,7 +258,11 @@ export function ComposeTicketDialog({ topics, onCreated, onTopicCreated }: Props
                   {files.length}{' '}
                   {files.length === 1 ? 'arquivo selecionado' : 'arquivos selecionados'}
                 </p>
-              ) : null}
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Você pode selecionar vários arquivos de uma vez.
+                </p>
+              )}
             </div>
             <label
               htmlFor="ticket-anonymous"

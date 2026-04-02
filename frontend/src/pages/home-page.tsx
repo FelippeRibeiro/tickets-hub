@@ -226,12 +226,12 @@ export function HomePage({
         ) : (
           sortedTickets.map((t) => (
             <Link key={t.id} to={`/ticket/${t.id}`} className="mb-3 block rounded-xl border border-border/70 bg-card/60 px-4 py-3 shadow-sm transition-colors hover:bg-muted/30">
-              <div className="flex gap-3">
+              <div className="flex items-start gap-3">
                 <UserAvatar
                   userId={t.user_id}
                   name={t.user_name}
                   hasAvatar={Boolean(t.user_has_avatar)}
-                  className="mt-1 size-10"
+                  className="size-10 self-start"
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
