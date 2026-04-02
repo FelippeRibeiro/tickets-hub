@@ -57,6 +57,7 @@ export function HomePage({
   const loadTopics = useCallback(async () => {
     const list = await getTopics();
     setTopics(list);
+    return list;
   }, []);
 
   const loadTickets = useCallback(async () => {
@@ -160,7 +161,7 @@ export function HomePage({
             <h1 className="text-xl font-bold tracking-tight">{title}</h1>
             <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p>
           </div>
-          {user ? <ComposeTicketDialog topics={topics} onCreated={refreshFeed} /> : null}
+          {user ? <ComposeTicketDialog topics={topics} onCreated={refreshFeed} onTopicCreated={loadTopics} /> : null}
         </div>
       </header>
 

@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
-import { Plus } from 'lucide-react'
-import { ApiError, createTicket, type Topic } from '@/lib/api'
+import { useEffect, useMemo, useState } from 'react'
+import { FolderPlus, Plus } from 'lucide-react'
+import { ApiError, createTicket, createTopic, type Topic } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -24,9 +24,10 @@ import { Textarea } from '@/components/ui/textarea'
 type Props = {
   topics: Topic[]
   onCreated: () => void
+  onTopicCreated?: () => Promise<Topic[] | void> | Topic[] | void
 }
 
-export function ComposeTicketDialog({ topics, onCreated }: Props) {
+export function ComposeTicketDialog({ topics, onCreated, onTopicCreated }: Props) {
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -35,13 +36,25 @@ export function ComposeTicketDialog({ topics, onCreated }: Props) {
   const [isAnonymous, setIsAnonymous] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
-  const selectedTopic = topics.find((t) => String(t.id) === topicId)
+  const [localTopics, setLocalTopics] = useState<Topic[]>(topics)
+  const [newTopicName, setNewTopicName] = useState('')
+  const [topicError, setTopicError] = useState<string | null>(null)
+  const [creatingTopic, setCreatingTopic] = useState(false)
+  const selectedTopic = useMemo(
+    () => localTopics.find((t) => String(t.id) === topicId),
+    [localTopics, topicId]
+  )
+
+  useEffect(() => {
+    setLocalTopics(topics)
+  }, [topics])
 
   useEffect(() => {
     if (!open) {
       return
     }
     setError(null)
+    setTopicError(null)
   }, [open])
 
   async function onSubmit(e: React.FormEvent) {
@@ -72,6 +85,40 @@ export function ComposeTicketDialog({ topics, onCreated }: Props) {
       setError(err instanceof ApiError ? err.message : 'Erro ao criar ticket')
     } finally {
       setPending(false)
+    }
+  }
+
+  async function onCreateTopic(e: React.FormEvent) {
+    e.preventDefault()
+    const trimmed = newTopicName.trim()
+    if (!trimmed) {
+      setTopicError('Informe um nome para o tópico')
+      return
+    }
+
+    setTopicError(null)
+    setCreatingTopic(true)
+    try {
+      const createdTopic = await createTopic(trimmed)
+      let nextTopics = [...localTopics]
+      if (!nextTopics.some((topic) => topic.id === createdTopic.id)) {
+        nextTopics = [...nextTopics, createdTopic]
+      }
+
+      if (onTopicCreated) {
+        const refreshed = await onTopicCreated()
+        if (Array.isArray(refreshed) && refreshed.length > 0) {
+          nextTopics = refreshed
+        }
+      }
+
+      setLocalTopics(nextTopics)
+      setTopicId(String(createdTopic.id))
+      setNewTopicName('')
+    } catch (err) {
+      setTopicError(err instanceof ApiError ? err.message : 'Erro ao criar tópico')
+    } finally {
+      setCreatingTopic(false)
     }
   }
 
@@ -123,13 +170,41 @@ export function ComposeTicketDialog({ topics, onCreated }: Props) {
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {topics.map((t) => (
+                  {localTopics.map((t) => (
                     <SelectItem key={t.id} value={String(t.id)}>
                       {t.name || `Tópico #${t.id}`}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2 rounded-lg border border-border/70 bg-muted/20 p-3">
+              <div className="flex items-center gap-2">
+                <FolderPlus className="size-4 text-muted-foreground" />
+                <Label htmlFor="new-topic-name">Criar novo tópico</Label>
+              </div>
+              <form className="flex flex-col gap-2 sm:flex-row" onSubmit={onCreateTopic}>
+                <Input
+                  id="new-topic-name"
+                  value={newTopicName}
+                  onChange={(e) => setNewTopicName(e.target.value)}
+                  placeholder="Ex.: Infraestrutura"
+                  autoComplete="off"
+                  disabled={creatingTopic}
+                />
+                <Button type="submit" variant="outline" disabled={creatingTopic} className="w-full sm:w-auto">
+                  {creatingTopic ? 'Criando…' : 'Adicionar'}
+                </Button>
+              </form>
+              {topicError ? (
+                <p className="text-xs text-destructive" role="alert">
+                  {topicError}
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  O tópico criado já será selecionado para este ticket.
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="ticket-body">Descrição</Label>
