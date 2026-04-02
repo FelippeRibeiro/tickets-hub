@@ -243,10 +243,16 @@ export function getUsers() {
   return api<User[]>('/api/users')
 }
 
-export function getTickets(topicId?: number) {
-  const q =
-    topicId !== undefined && topicId > 0 ? `?topic_id=${topicId}` : ''
-  return api<Ticket[]>(`/api/tickets${q}`)
+export function getTickets(topicId?: number, options?: { mine?: boolean }) {
+  const params = new URLSearchParams()
+  if (topicId !== undefined && topicId > 0) {
+    params.set('topic_id', String(topicId))
+  }
+  if (options?.mine) {
+    params.set('mine', 'true')
+  }
+  const query = params.toString()
+  return api<Ticket[]>(`/api/tickets${query ? `?${query}` : ''}`)
 }
 
 export function getTicket(id: number) {

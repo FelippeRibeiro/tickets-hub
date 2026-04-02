@@ -357,7 +357,7 @@ export function TicketDetailPage() {
                     ) : null}
                   </div>
                   <h1 className="mt-3 text-2xl font-bold leading-tight tracking-tight">{ticket.title}</h1>
-                  <p className="mt-4 whitespace-pre-wrap text-[15px] leading-relaxed text-foreground">{ticket.description}</p>
+                  <p className="mt-4 whitespace-pre-wrap wrap-anywhere text-[15px] leading-relaxed text-foreground">{ticket.description}</p>
                   <div className="mt-6 flex flex-wrap gap-8 border-t border-border/70 pt-4 text-muted-foreground">
                     {user ? (
                       <button
@@ -412,7 +412,7 @@ export function TicketDetailPage() {
               <Separator className="my-3" />
               {user ? (
                 <form onSubmit={onSubmitComment} className="space-y-3 rounded-xl border border-border/70 bg-muted/20 p-4">
-                  <Textarea value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Escreva um comentário (ou só anexe mídia)..." rows={3} />
+                  <Textarea value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Escreva um comentário (ou só anexe mídia)..." rows={3} maxLength={5000} />
                   <div className="flex flex-wrap items-center gap-3">
                     <input
                       ref={commentFileInputRef}
@@ -469,7 +469,7 @@ export function TicketDetailPage() {
                           </Button>
                         ) : null}
                       </div>
-                      {comment.comment ? <p className="whitespace-pre-wrap text-sm leading-relaxed">{comment.comment}</p> : null}
+                      {comment.comment ? <p className="whitespace-pre-wrap wrap-anywhere text-sm leading-relaxed">{comment.comment}</p> : null}
                       {comment.attachments && comment.attachments.length > 0 ? <div className="mt-3 grid gap-3">{comment.attachments.map((a) => renderAttachmentMedia(a))}</div> : null}
                     </article>
                   ))

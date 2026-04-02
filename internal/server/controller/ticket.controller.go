@@ -103,7 +103,6 @@ func (tc *TicketController) GetTicket(w http.ResponseWriter, r *http.Request) {
 		ticket.UserID = 0
 	}
 
-
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(ticket)
 }
@@ -118,6 +117,7 @@ func (tc *TicketController) ListTickets(w http.ResponseWriter, r *http.Request) 
 	userID := &user.UserID
 
 	var topicID *int
+	onlyMine := strings.EqualFold(r.URL.Query().Get("mine"), "true")
 	if raw := r.URL.Query().Get("topic_id"); raw != "" {
 		id, err := strconv.Atoi(raw)
 		if err != nil || id <= 0 {
@@ -139,7 +139,7 @@ func (tc *TicketController) ListTickets(w http.ResponseWriter, r *http.Request) 
 		topicID = &id
 	}
 
-	tickets, err := tc.ticketRepository.List(topicID, userID)
+	tickets, err := tc.ticketRepository.List(topicID, userID, onlyMine)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
@@ -333,7 +333,6 @@ func (tc *TicketController) createTicketMultipart(w http.ResponseWriter, r *http
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(full)
 }
-
 
 func (tc *TicketController) DeleteTicket(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")

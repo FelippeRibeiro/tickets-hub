@@ -32,7 +32,17 @@ const sortLabels = {
   comments_asc: 'Menos comentados',
 } as const;
 
-export function HomePage() {
+type HomePageProps = {
+  onlyMine?: boolean;
+  title?: string;
+  subtitle?: string;
+}
+
+export function HomePage({
+  onlyMine = false,
+  title = 'Feed',
+  subtitle = 'Últimos tickets da comunidade',
+}: HomePageProps) {
   const { user } = useAuth();
   const [topics, setTopics] = useState<Topic[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -50,9 +60,9 @@ export function HomePage() {
   }, []);
 
   const loadTickets = useCallback(async () => {
-    const list = await getTickets(topicFilter ?? undefined);
+    const list = await getTickets(topicFilter ?? undefined, { mine: onlyMine });
     setTickets(list);
-  }, [topicFilter]);
+  }, [onlyMine, topicFilter]);
 
   useEffect(() => {
     void loadTopics().catch(() => {
@@ -147,8 +157,8 @@ export function HomePage() {
       <header className="sticky top-0 z-30 border-b border-border/70 bg-background/90 px-5 py-4 backdrop-blur">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold tracking-tight">Feed</h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">Últimos tickets da comunidade</p>
+            <h1 className="text-xl font-bold tracking-tight">{title}</h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p>
           </div>
           {user ? <ComposeTicketDialog topics={topics} onCreated={refreshFeed} /> : null}
         </div>
@@ -209,7 +219,9 @@ export function HomePage() {
             ))}
           </div>
         ) : tickets.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border/70 p-10 text-center text-sm text-muted-foreground">Nenhum ticket ainda. Seja o primeiro a publicar.</div>
+          <div className="rounded-xl border border-dashed border-border/70 p-10 text-center text-sm text-muted-foreground">
+            {onlyMine ? 'Você ainda não criou nenhum ticket.' : 'Nenhum ticket ainda. Seja o primeiro a publicar.'}
+          </div>
         ) : (
           sortedTickets.map((t) => (
             <Link key={t.id} to={`/ticket/${t.id}`} className="mb-3 block rounded-xl border border-border/70 bg-card/60 px-4 py-3 shadow-sm transition-colors hover:bg-muted/30">

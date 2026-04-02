@@ -9,6 +9,10 @@ import { LoginPage } from '@/pages/login-page'
 import { RegisterPage } from '@/pages/register-page'
 import { TicketDetailPage } from '@/pages/ticket-detail-page'
 
+function MyTicketsPage() {
+  return <HomePage onlyMine title="Meus tickets" subtitle="Tickets criados por você" />
+}
+
 function AdminPageWrapper() {
   const { user } = useAuth()
   if (!user?.is_admin) {
@@ -33,6 +37,7 @@ export default function App() {
         }
       >
         <Route path="/" element={<HomePage />} />
+        <Route path="/meus-tickets" element={<MyTicketsPage />} />
         <Route path="/admin" element={<AdminPageWrapper />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

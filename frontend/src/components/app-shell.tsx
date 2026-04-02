@@ -34,6 +34,9 @@ export function AppShell() {
             <NavLink to="/" end className={navClass}>
               Início
             </NavLink>
+            <NavLink to="/meus-tickets" className={navClass}>
+              Meus tickets
+            </NavLink>
             {user?.is_admin ? (
               <NavLink to="/admin" className={navClass}>
                 <span className="flex items-center gap-2">
@@ -92,6 +95,21 @@ export function AppShell() {
               </Button>
             </div>
           </header>
+          <div className="border-b border-border/70 bg-background/80 px-4 py-2 md:hidden">
+            <nav className="flex gap-2 overflow-x-auto">
+              <NavLink to="/" end className={navClass}>
+                Início
+              </NavLink>
+              <NavLink to="/meus-tickets" className={navClass}>
+                Meus tickets
+              </NavLink>
+              {user?.is_admin ? (
+                <NavLink to="/admin" className={navClass}>
+                  Admin
+                </NavLink>
+              ) : null}
+            </nav>
+          </div>
           <Outlet />
         </main>
       </div>
