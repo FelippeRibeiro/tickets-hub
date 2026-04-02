@@ -88,8 +88,7 @@ export function ComposeTicketDialog({ topics, onCreated, onTopicCreated }: Props
     }
   }
 
-  async function onCreateTopic(e: React.FormEvent) {
-    e.preventDefault()
+  async function onCreateTopic() {
     const trimmed = newTopicName.trim()
     if (!trimmed) {
       setTopicError('Informe um nome para o tópico')
@@ -183,7 +182,7 @@ export function ComposeTicketDialog({ topics, onCreated, onTopicCreated }: Props
                 <FolderPlus className="size-4 text-muted-foreground" />
                 <Label htmlFor="new-topic-name">Criar novo tópico</Label>
               </div>
-              <form className="flex flex-col gap-2 sm:flex-row" onSubmit={onCreateTopic}>
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <Input
                   id="new-topic-name"
                   value={newTopicName}
@@ -191,11 +190,17 @@ export function ComposeTicketDialog({ topics, onCreated, onTopicCreated }: Props
                   placeholder="Ex.: Infraestrutura"
                   autoComplete="off"
                   disabled={creatingTopic}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      void onCreateTopic()
+                    }
+                  }}
                 />
-                <Button type="submit" variant="outline" disabled={creatingTopic} className="w-full sm:w-auto">
+                <Button type="button" variant="outline" disabled={creatingTopic} className="w-full sm:w-auto" onClick={() => void onCreateTopic()}>
                   {creatingTopic ? 'Criando…' : 'Adicionar'}
                 </Button>
-              </form>
+              </div>
               {topicError ? (
                 <p className="text-xs text-destructive" role="alert">
                   {topicError}
