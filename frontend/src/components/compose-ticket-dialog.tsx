@@ -40,14 +40,27 @@ export function ComposeTicketDialog({ topics, onCreated, onTopicCreated }: Props
   const [newTopicName, setNewTopicName] = useState('')
   const [topicError, setTopicError] = useState<string | null>(null)
   const [creatingTopic, setCreatingTopic] = useState(false)
+  const [preferredTopicId, setPreferredTopicId] = useState<string>('')
   const selectedTopic = useMemo(
-    () => localTopics.find((t) => String(t.id) === topicId),
-    [localTopics, topicId]
+    () => localTopics.find((t) => String(t.id) === (preferredTopicId || topicId)),
+    [localTopics, preferredTopicId, topicId]
   )
+
+  const selectedTopicValue = preferredTopicId || topicId
 
   useEffect(() => {
     setLocalTopics(topics)
   }, [topics])
+
+  useEffect(() => {
+    if (!preferredTopicId) {
+      return
+    }
+    if (localTopics.some((topic) => String(topic.id) === preferredTopicId)) {
+      setTopicId(preferredTopicId)
+      setPreferredTopicId('')
+    }
+  }, [localTopics, preferredTopicId])
 
   useEffect(() => {
     if (!open) {
@@ -77,6 +90,7 @@ export function ComposeTicketDialog({ topics, onCreated, onTopicCreated }: Props
       setTitle('')
       setDescription('')
       setTopicId('')
+      setPreferredTopicId('')
       setFiles([])
       setIsAnonymous(false)
       setOpen(false)
@@ -112,7 +126,7 @@ export function ComposeTicketDialog({ topics, onCreated, onTopicCreated }: Props
       }
 
       setLocalTopics(nextTopics)
-      setTopicId(String(createdTopic.id))
+      setPreferredTopicId(String(createdTopic.id))
       setNewTopicName('')
     } catch (err) {
       setTopicError(err instanceof ApiError ? err.message : 'Erro ao criar tópico')
@@ -160,11 +174,11 @@ export function ComposeTicketDialog({ topics, onCreated, onTopicCreated }: Props
             <div className="space-y-2">
               <Label>Tópico</Label>
               <Select
-                value={topicId || undefined}
+                value={selectedTopicValue || undefined}
                 onValueChange={(v) => setTopicId(v ?? '')}
               >
                 <SelectTrigger className="w-full min-w-0">
-                  <SelectValue placeholder="Selecione um tópico">
+                  <SelectValue key={selectedTopicValue || 'empty'} placeholder="Selecione um tópico">
                     {selectedTopic?.name}
                   </SelectValue>
                 </SelectTrigger>
