@@ -48,7 +48,7 @@ func Server() {
 
 	userController := controller.NewUserController(userRepository)
 	topicController := controller.NewTopicController(topicRepository)
-	ticketController := controller.NewTicketController(ticketRepository, topicRepository, attachmentRepository, uploadRoot)
+	ticketController := controller.NewTicketController(ticketRepository, topicRepository, attachmentRepository, uploadRoot, hub)
 	commentController := controller.NewCommentController(commentRepository, ticketRepository, commentAttachmentRepository, notificationRepository, hub, uploadRoot)
 	likeController := controller.NewLikeController(likeRepository, ticketRepository, notificationRepository, hub)
 	attachmentController := controller.NewAttachmentController(ticketRepository, attachmentRepository, commentAttachmentRepository, uploadRoot)

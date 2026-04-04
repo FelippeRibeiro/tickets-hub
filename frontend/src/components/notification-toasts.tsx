@@ -23,7 +23,7 @@ export function NotificationToasts() {
   }
 
   return (
-    <div className="pointer-events-none fixed right-3 top-20 z-50 flex w-[min(92vw,24rem)] flex-col gap-2 sm:right-4 sm:top-4">
+    <>
       {transientItems.map((item) => (
         <div
           key={item.id}
@@ -69,7 +69,7 @@ export function NotificationToasts() {
           </div>
         </div>
       ))}
-    </div>
+    </>
   )
 }
 

@@ -15,6 +15,8 @@ type UserAvatarProps = {
   hasAvatar: boolean
   size?: 'sm' | 'default' | 'lg'
   className?: string
+  /** When false, skips the zoom dialog (use inside other buttons/links to avoid invalid nesting). */
+  enableAvatarPreview?: boolean
 }
 
 export function UserAvatar({
@@ -23,6 +25,7 @@ export function UserAvatar({
   hasAvatar,
   size = 'default',
   className,
+  enableAvatarPreview = true,
 }: UserAvatarProps) {
   const avatarUrl = userAvatarUrl(userId)
 
@@ -33,7 +36,7 @@ export function UserAvatar({
     </Avatar>
   )
 
-  if (!hasAvatar) {
+  if (!hasAvatar || !enableAvatarPreview) {
     return avatarNode
   }
 

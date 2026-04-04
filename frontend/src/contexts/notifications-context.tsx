@@ -17,6 +17,16 @@ import {
   type Notification,
 } from '@/lib/api'
 
+export type NewTicketToastItem = {
+  toastId: string
+  ticketId: number
+  title: string
+  topicName: string
+  authorName: string
+  authorUserId: number
+  isAnonymous: boolean
+}
+
 type NotificationsState = {
   items: Notification[]
   unreadCount: number
@@ -29,6 +39,8 @@ type NotificationsState = {
   setToastEnabled: (enabled: boolean) => void
   transientItems: Notification[]
   dismissTransient: (notificationId: number) => void
+  newTicketToasts: NewTicketToastItem[]
+  dismissNewTicketToast: (toastId: string) => void
   refresh: () => Promise<void>
   markRead: (notificationId: number) => Promise<void>
   markAllRead: () => Promise<void>
@@ -69,8 +81,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const [soundEnabled, setSoundEnabled] = useState(() => readStoredPreference(SOUND_PREF_KEY, true))
   const [toastEnabled, setToastEnabled] = useState(() => readStoredPreference(TOAST_PREF_KEY, true))
   const [transientItems, setTransientItems] = useState<Notification[]>([])
+  const [newTicketToasts, setNewTicketToasts] = useState<NewTicketToastItem[]>([])
   const socketRef = useRef<WebSocket | null>(null)
   const timeoutsRef = useRef<Record<number, number>>({})
+  const newTicketTimeoutsRef = useRef<Record<string, number>>({})
   const reconnectTimeoutRef = useRef<number | null>(null)
   const pingIntervalRef = useRef<number | null>(null)
   const reconnectAttemptsRef = useRef(0)
@@ -83,6 +97,54 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       delete timeoutsRef.current[notificationId]
     }
   }, [])
+
+  const dismissNewTicketToast = useCallback((toastId: string) => {
+    setNewTicketToasts((prev) => prev.filter((item) => item.toastId !== toastId))
+    const timeoutId = newTicketTimeoutsRef.current[toastId]
+    if (timeoutId) {
+      window.clearTimeout(timeoutId)
+      delete newTicketTimeoutsRef.current[toastId]
+    }
+  }, [])
+
+  const showNewTicketToast = useCallback(
+    (ticket: {
+      id: number
+      title: string
+      topic_name: string
+      author_name: string
+      author_user_id: number
+      is_anonymous: boolean
+    }) => {
+      const toastId = `nt-${ticket.id}-${Date.now()}`
+      const item: NewTicketToastItem = {
+        toastId,
+        ticketId: ticket.id,
+        title: ticket.title,
+        topicName: ticket.topic_name,
+        authorName: ticket.author_name,
+        authorUserId: ticket.author_user_id,
+        isAnonymous: ticket.is_anonymous,
+      }
+      setNewTicketToasts((prev) => {
+        for (const old of prev) {
+          if (old.ticketId === ticket.id) {
+            const tid = newTicketTimeoutsRef.current[old.toastId]
+            if (tid) {
+              window.clearTimeout(tid)
+              delete newTicketTimeoutsRef.current[old.toastId]
+            }
+          }
+        }
+        return [item, ...prev.filter((x) => x.ticketId !== ticket.id)].slice(0, 3)
+      })
+      newTicketTimeoutsRef.current[toastId] = window.setTimeout(() => {
+        setNewTicketToasts((prev) => prev.filter((x) => x.toastId !== toastId))
+        delete newTicketTimeoutsRef.current[toastId]
+      }, 8000)
+    },
+    []
+  )
 
   const playNotificationSound = useCallback(() => {
     if (typeof window === 'undefined' || !soundEnabled) {
@@ -251,26 +313,40 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
           const payload = JSON.parse(event.data) as {
             type?: string
             notification?: Notification
+            ticket?: {
+              id: number
+              title: string
+              topic_name: string
+              author_name: string
+              author_user_id: number
+              is_anonymous: boolean
+            }
           }
-          if (payload.type !== 'notification.created' || !payload.notification) {
+          if (payload.type === 'notification.created' && payload.notification) {
+            setItems((prev) => {
+              const next = [payload.notification!, ...prev.filter((item) => item.id !== payload.notification!.id)]
+              return sortNotifications(next).slice(0, 20)
+            })
+            setUnreadCount((prev) => prev + 1)
+            playNotificationSound()
+            if (toastEnabled) {
+              showTransient(payload.notification)
+            }
             return
           }
 
-          setItems((prev) => {
-            const next = [payload.notification!, ...prev.filter((item) => item.id !== payload.notification!.id)]
-            return sortNotifications(next).slice(0, 20)
-          })
-          setUnreadCount((prev) => prev + 1)
-          playNotificationSound()
-          if (toastEnabled) {
-            showTransient(payload.notification)
+          if (payload.type === 'ticket.created' && payload.ticket) {
+            playNotificationSound()
+            if (toastEnabled) {
+              showNewTicketToast(payload.ticket)
+            }
           }
         } catch {
           /* ignore invalid websocket payload */
         }
       }
     }, delay)
-  }, [playNotificationSound, showTransient, toastEnabled, user])
+  }, [playNotificationSound, showNewTicketToast, showTransient, toastEnabled, user])
 
   useEffect(() => {
     void refresh()
@@ -295,6 +371,9 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       closeSocket()
       setConnected(false)
       reconnectAttemptsRef.current = 0
+      setNewTicketToasts([])
+      Object.values(newTicketTimeoutsRef.current).forEach((id) => window.clearTimeout(id))
+      newTicketTimeoutsRef.current = {}
       return
     }
 
@@ -334,6 +413,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       closeSocket()
       Object.values(timeoutsRef.current).forEach((timeoutId) => window.clearTimeout(timeoutId))
       timeoutsRef.current = {}
+      Object.values(newTicketTimeoutsRef.current).forEach((timeoutId) => window.clearTimeout(timeoutId))
+      newTicketTimeoutsRef.current = {}
     }
   }, [closeSocket])
 
@@ -350,6 +431,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       setToastEnabled: (enabled: boolean) => setToastEnabled(enabled),
       transientItems,
       dismissTransient,
+      newTicketToasts,
+      dismissNewTicketToast,
       refresh,
       markRead,
       markAllRead,
@@ -364,6 +447,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       toastEnabled,
       transientItems,
       dismissTransient,
+      newTicketToasts,
+      dismissNewTicketToast,
       refresh,
       markRead,
       markAllRead,

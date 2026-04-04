@@ -130,6 +130,7 @@ export function NotificationsMenu() {
                   name={item.actor_name}
                   hasAvatar={item.actor_has_avatar && Boolean(item.actor_id)}
                   size="sm"
+                  enableAvatarPreview={false}
                 />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium">

@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { UserAvatar } from '@/components/user-avatar';
+import { FEED_REFETCH_EVENT } from '@/lib/feed-events';
 import { cn } from '@/lib/utils';
 
 function formatDate(iso: string) {
@@ -70,6 +71,14 @@ export function HomePage({
       /* topics públicos — falha rara */
     });
   }, [loadTopics]);
+
+  useEffect(() => {
+    const onFeedRefetch = () => {
+      void loadTickets();
+    };
+    window.addEventListener(FEED_REFETCH_EVENT, onFeedRefetch);
+    return () => window.removeEventListener(FEED_REFETCH_EVENT, onFeedRefetch);
+  }, [loadTickets]);
 
   useEffect(() => {
     let cancelled = false;

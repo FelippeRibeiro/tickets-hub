@@ -14,6 +14,7 @@ import (
 	"github.com/FelippeRibeiro/tickets-hub/internal/model"
 	"github.com/FelippeRibeiro/tickets-hub/internal/repository"
 	"github.com/FelippeRibeiro/tickets-hub/internal/server/middlewares"
+	"github.com/FelippeRibeiro/tickets-hub/internal/server/realtime"
 	"github.com/FelippeRibeiro/tickets-hub/internal/server/upload"
 	"github.com/FelippeRibeiro/tickets-hub/pkg/utils"
 )
@@ -23,6 +24,7 @@ type TicketController struct {
 	topicRepository      *repository.TopicRepository
 	attachmentRepository *repository.AttachmentRepository
 	uploadRoot           string
+	hub                  *realtime.Hub
 }
 
 func NewTicketController(
@@ -30,12 +32,14 @@ func NewTicketController(
 	topicRepository *repository.TopicRepository,
 	attachmentRepository *repository.AttachmentRepository,
 	uploadRoot string,
+	hub *realtime.Hub,
 ) *TicketController {
 	return &TicketController{
 		ticketRepository:     ticketRepository,
 		topicRepository:      topicRepository,
 		attachmentRepository: attachmentRepository,
 		uploadRoot:           uploadRoot,
+		hub:                  hub,
 	}
 }
 
@@ -65,6 +69,26 @@ func (tc *TicketController) ticketAttachments(ticketID int) []model.TicketAttach
 		})
 	}
 	return out
+}
+
+func (tc *TicketController) broadcastNewTicket(full *model.TicketWithUserName, authorUserID int) {
+	if tc.hub == nil || full == nil {
+		return
+	}
+	displayName := full.UserName
+	authorForAvatar := full.UserID
+	if full.IsAnonymous {
+		displayName = "Usuário anônimo"
+		authorForAvatar = 0
+	}
+	tc.hub.BroadcastNewTicketExcept(authorUserID, realtime.TicketCreatedPayload{
+		ID:           full.ID,
+		Title:        full.Title,
+		TopicName:    full.TopicName,
+		AuthorName:   displayName,
+		AuthorUserID: authorForAvatar,
+		IsAnonymous:  full.IsAnonymous,
+	})
 }
 
 func (tc *TicketController) GetTicket(w http.ResponseWriter, r *http.Request) {
@@ -246,6 +270,8 @@ func (tc *TicketController) CreateTicket(w http.ResponseWriter, r *http.Request)
 		full.Attachments = atts
 	}
 
+	tc.broadcastNewTicket(full, user.UserID)
+
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(full)
 }
@@ -329,6 +355,8 @@ func (tc *TicketController) createTicketMultipart(w http.ResponseWriter, r *http
 	if atts := tc.ticketAttachments(ticket.ID); len(atts) > 0 {
 		full.Attachments = atts
 	}
+
+	tc.broadcastNewTicket(full, user.UserID)
 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(full)
