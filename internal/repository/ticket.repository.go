@@ -1,6 +1,9 @@
 package repository
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/FelippeRibeiro/tickets-hub/internal/model"
 
 	"github.com/jmoiron/sqlx"
@@ -54,8 +57,18 @@ func (tr *TicketRepository) Create(userID int, ticket *model.CreateTicket) (*mod
 	return &out, nil
 }
 
-func (tr *TicketRepository) List(topicID *int, userID *int, onlyMine bool) ([]model.TicketWithUserName, error) {
+// List returns tickets for the feed. searchQuery filters title, description and topic name (ILIKE).
+func (tr *TicketRepository) List(topicID *int, userID *int, onlyMine bool, searchQuery string) ([]model.TicketWithUserName, error) {
 	tickets := []model.TicketWithUserName{}
+	q := strings.TrimSpace(searchQuery)
+	if len(q) > 200 {
+		q = q[:200]
+	}
+	pattern := ""
+	if q != "" {
+		pattern = "%" + q + "%"
+	}
+
 	baseQuery := `SELECT 
 		t.id,
 		t.title,
@@ -75,44 +88,29 @@ func (tr *TicketRepository) List(topicID *int, userID *int, onlyMine bool) ([]mo
 		INNER JOIN topics tp on tp.id = t.topic_id
 		LEFT JOIN users u on t.user_id = u.id`
 
-	var err error
-	switch {
-	case onlyMine && topicID != nil:
-		err = tr.db.Select(
-			&tickets,
-			baseQuery+`
-			WHERE t.user_id = $2 AND t.topic_id = $3
-			ORDER BY created_at DESC`,
-			*userID,
-			*userID,
-			*topicID,
-		)
-	case onlyMine:
-		err = tr.db.Select(
-			&tickets,
-			baseQuery+`
-			WHERE t.user_id = $2
-			ORDER BY created_at DESC`,
-			*userID,
-			*userID,
-		)
-	case topicID != nil:
-		err = tr.db.Select(
-			&tickets,
-			baseQuery+`
-			WHERE t.topic_id = $2
-			ORDER BY created_at DESC`,
-			*userID,
-			*topicID,
-		)
-	default:
-		err = tr.db.Select(
-			&tickets,
-			baseQuery+`
-			ORDER BY created_at DESC`,
-			*userID,
-		)
+	args := []interface{}{*userID}
+	var clauses []string
+	n := 2
+	if onlyMine {
+		clauses = append(clauses, fmt.Sprintf("t.user_id = $%d", n))
+		args = append(args, *userID)
+		n++
 	}
+	if topicID != nil {
+		clauses = append(clauses, fmt.Sprintf("t.topic_id = $%d", n))
+		args = append(args, *topicID)
+		n++
+	}
+	if pattern != "" {
+		clauses = append(clauses, fmt.Sprintf("(t.title ILIKE $%d OR t.description ILIKE $%d OR tp.name ILIKE $%d)", n, n, n))
+		args = append(args, pattern)
+	}
+	where := ""
+	if len(clauses) > 0 {
+		where = "WHERE " + strings.Join(clauses, " AND ")
+	}
+	query := baseQuery + "\n" + where + "\nORDER BY t.created_at DESC"
+	err := tr.db.Select(&tickets, query, args...)
 	if err != nil {
 		return nil, err
 	}

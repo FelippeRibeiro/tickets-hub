@@ -27,9 +27,18 @@ function formatRelativeDate(iso: string) {
   }
 }
 
-function notificationText(type: 'like' | 'comment' | 'participant_comment', actorName: string) {
+function notificationText(
+  type: 'like' | 'comment' | 'participant_comment' | 'reply' | 'comment_like',
+  actorName: string
+) {
   if (type === 'participant_comment') {
     return `${actorName} também comentou na publicação`
+  }
+  if (type === 'reply') {
+    return `${actorName} respondeu ao seu comentário`
+  }
+  if (type === 'comment_like') {
+    return `${actorName} curtiu seu comentário`
   }
   if (type === 'comment') {
     return `${actorName} comentou no seu ticket`
@@ -137,9 +146,9 @@ export function NotificationsMenu() {
                     {notificationText(item.type, item.actor_name)}
                   </p>
                   <p className="truncate text-xs text-muted-foreground">{item.ticket_title}</p>
-                  {item.type === 'comment' && item.comment_preview ? (
-                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                      {item.comment_preview}
+                  {item.comment_preview ? (
+                    <p className="mt-1 line-clamp-2 whitespace-pre-wrap break-words text-xs text-muted-foreground">
+                      {item.comment_preview.replace(/\s+/g, ' ').trim()}
                     </p>
                   ) : null}
                   <p className="mt-1 text-[11px] text-muted-foreground">

@@ -46,7 +46,7 @@ func NewTicketController(
 }
 
 func (tc *TicketController) SetupRoutes(server *http.ServeMux) {
-	server.Handle("GET /api/tickets/{id}", middlewares.OptionalAuthMiddleware(http.HandlerFunc(tc.GetTicket)))
+	server.Handle("GET /api/tickets/{id}", middlewares.AuthMiddleware(http.HandlerFunc(tc.GetTicket), false))
 	server.Handle("GET /api/tickets", middlewares.AuthMiddleware(http.HandlerFunc(tc.ListTickets), false))
 	server.Handle("POST /api/tickets", middlewares.AuthMiddleware(http.HandlerFunc(tc.CreateTicket), false))
 	server.Handle("DELETE /api/tickets/{id}", middlewares.AuthMiddleware(http.HandlerFunc(tc.DeleteTicket), false))
@@ -114,7 +114,11 @@ func (tc *TicketController) notifyDiscordNewTicket(full *model.TicketWithUserNam
 
 func (tc *TicketController) GetTicket(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	user, _ := r.Context().Value("user").(*utils.Claims)
+	user, ok := r.Context().Value("user").(*utils.Claims)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
 
 	idStr := r.PathValue("id")
 	id, err := strconv.Atoi(idStr)
@@ -163,6 +167,10 @@ func (tc *TicketController) ListTickets(w http.ResponseWriter, r *http.Request) 
 
 	var topicID *int
 	onlyMine := strings.EqualFold(r.URL.Query().Get("mine"), "true")
+	searchQ := strings.TrimSpace(r.URL.Query().Get("q"))
+	if len(searchQ) > 200 {
+		searchQ = searchQ[:200]
+	}
 	if raw := r.URL.Query().Get("topic_id"); raw != "" {
 		id, err := strconv.Atoi(raw)
 		if err != nil || id <= 0 {
@@ -184,7 +192,7 @@ func (tc *TicketController) ListTickets(w http.ResponseWriter, r *http.Request) 
 		topicID = &id
 	}
 
-	tickets, err := tc.ticketRepository.List(topicID, userID, onlyMine)
+	tickets, err := tc.ticketRepository.List(topicID, userID, onlyMine, searchQ)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})

@@ -113,7 +113,7 @@ ALTER TABLE comments ADD COLUMN IF NOT EXISTS is_anonymous BOOLEAN DEFAULT FALSE
 CREATE TABLE IF NOT EXISTS notifications (
     id SERIAL PRIMARY KEY,
     user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    type TEXT NOT NULL CHECK (type IN ('like', 'comment', 'participant_comment')),
+    type TEXT NOT NULL CHECK (type IN ('like', 'comment', 'participant_comment', 'reply', 'comment_like')),
     ticket_id INT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
     actor_id INT REFERENCES users(id) ON DELETE SET NULL,
     actor_is_anonymous BOOLEAN NOT NULL DEFAULT FALSE,
@@ -126,6 +126,32 @@ ALTER TABLE notifications ADD COLUMN IF NOT EXISTS actor_is_anonymous BOOLEAN NO
 
 CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id) WHERE read_at IS NULL;
+
+
+
+ALTER TABLE comments ADD COLUMN IF NOT EXISTS parent_comment_id INT REFERENCES comments(id) ON DELETE CASCADE;
+
+CREATE INDEX IF NOT EXISTS idx_comments_ticket_parent ON comments(ticket_id, parent_comment_id);
+
+CREATE TABLE IF NOT EXISTS comment_likes (
+    user_id INT NOT NULL,
+    comment_id INT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+    PRIMARY KEY (user_id, comment_id),
+
+    CONSTRAINT fk_comment_like_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_comment_like_comment
+        FOREIGN KEY (comment_id)
+        REFERENCES comments(id)
+        ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_comment_likes_comment_id ON comment_likes(comment_id);
 
 
 -- DELETE FROM users WHERE name = '';

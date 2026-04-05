@@ -35,7 +35,7 @@ func NewLikeController(
 }
 
 func (lc *LikeController) SetupRoutes(server *http.ServeMux) {
-	server.Handle("GET /api/tickets/{id}/likes", http.HandlerFunc(lc.GetSummary))
+	server.Handle("GET /api/tickets/{id}/likes", middlewares.AuthMiddleware(http.HandlerFunc(lc.GetSummary), false))
 	server.Handle("POST /api/tickets/{id}/likes", middlewares.AuthMiddleware(http.HandlerFunc(lc.Like), false))
 	server.Handle("DELETE /api/tickets/{id}/likes", middlewares.AuthMiddleware(http.HandlerFunc(lc.Unlike), false))
 }
@@ -63,17 +63,16 @@ func (lc *LikeController) getTicketID(w http.ResponseWriter, r *http.Request) (i
 
 func (lc *LikeController) GetSummary(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	user, ok := r.Context().Value("user").(*utils.Claims)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
 	ticketID, ok := lc.getTicketID(w, r)
 	if !ok {
 		return
 	}
-	userID := -1
-	if c, err := r.Cookie("token"); err == nil {
-		if claims, err := utils.ValidateJWTToken(c.Value); err == nil {
-			userID = claims.UserID
-		}
-	}
-	summary, err := lc.likeRepository.Summary(userID, ticketID)
+	summary, err := lc.likeRepository.Summary(user.UserID, ticketID)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})

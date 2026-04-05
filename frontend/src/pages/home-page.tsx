@@ -8,6 +8,7 @@ import { CreateTopicDialog } from '@/components/create-topic-dialog';
 import { TicketFeedAttachments } from '@/components/ticket-feed-attachments';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { UserAvatar } from '@/components/user-avatar';
@@ -52,6 +53,8 @@ export function HomePage({
   const [likedByTicket, setLikedByTicket] = useState<Record<number, boolean>>({});
   const [likesByTicket, setLikesByTicket] = useState<Record<number, number>>({});
   const [pendingLikeByTicket, setPendingLikeByTicket] = useState<Record<number, boolean>>({});
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,10 +64,20 @@ export function HomePage({
     return list;
   }, []);
 
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      setDebouncedSearch(searchInput.trim());
+    }, 300);
+    return () => window.clearTimeout(t);
+  }, [searchInput]);
+
   const loadTickets = useCallback(async () => {
-    const list = await getTickets(topicFilter ?? undefined, { mine: onlyMine });
+    const list = await getTickets(topicFilter ?? undefined, {
+      mine: onlyMine,
+      q: debouncedSearch || undefined,
+    });
     setTickets(list);
-  }, [onlyMine, topicFilter]);
+  }, [onlyMine, topicFilter, debouncedSearch]);
 
   useEffect(() => {
     void loadTopics().catch(() => {
@@ -190,6 +203,16 @@ export function HomePage({
           </div>
           {user ? <CreateTopicDialog onCreated={() => void loadTopics()} /> : null}
         </div>
+        <div className="mt-3">
+          <Input
+            type="search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Buscar por título, descrição ou tópico…"
+            className="h-9"
+            aria-label="Buscar tickets"
+          />
+        </div>
       </div>
 
       <div className="px-4 py-2">
@@ -230,7 +253,11 @@ export function HomePage({
           </div>
         ) : tickets.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border/70 p-10 text-center text-sm text-muted-foreground">
-            {onlyMine ? 'Você ainda não criou nenhum ticket.' : 'Nenhum ticket ainda. Seja o primeiro a publicar.'}
+            {debouncedSearch
+              ? 'Nenhum ticket encontrado para sua busca.'
+              : onlyMine
+                ? 'Você ainda não criou nenhum ticket.'
+                : 'Nenhum ticket ainda. Seja o primeiro a publicar.'}
           </div>
         ) : (
           sortedTickets.map((t) => (

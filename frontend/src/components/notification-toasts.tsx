@@ -4,9 +4,18 @@ import { Button } from '@/components/ui/button'
 import { UserAvatar } from '@/components/user-avatar'
 import { useNotifications } from '@/contexts/notifications-context'
 
-function toastText(type: 'like' | 'comment' | 'participant_comment', actorName: string) {
+function toastText(
+  type: 'like' | 'comment' | 'participant_comment' | 'reply' | 'comment_like',
+  actorName: string
+) {
   if (type === 'participant_comment') {
     return `${actorName} também comentou na publicação`
+  }
+  if (type === 'reply') {
+    return `${actorName} respondeu ao seu comentário`
+  }
+  if (type === 'comment_like') {
+    return `${actorName} curtiu seu comentário`
   }
   if (type === 'comment') {
     return `${actorName} comentou no seu ticket`
@@ -53,8 +62,10 @@ export function NotificationToasts() {
               </div>
               <p className="mt-1 text-sm font-medium">{toastText(item.type, item.actor_name)}</p>
               <p className="truncate text-xs text-muted-foreground">{item.ticket_title}</p>
-              {item.type === 'comment' && item.comment_preview ? (
-                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{item.comment_preview}</p>
+              {item.comment_preview ? (
+                <p className="mt-1 line-clamp-2 whitespace-pre-wrap break-words text-xs text-muted-foreground">
+                  {item.comment_preview.replace(/\s+/g, ' ').trim()}
+                </p>
               ) : null}
             </button>
             <Button

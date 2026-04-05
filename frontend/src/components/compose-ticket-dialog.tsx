@@ -72,6 +72,9 @@ export function ComposeTicketDialog({ topics, onCreated, onTopicCreated }: Props
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (pending) {
+      return
+    }
     const id = Number(topicId)
     if (!id) {
       setError('Escolha um tópico')

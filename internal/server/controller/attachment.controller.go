@@ -41,8 +41,8 @@ func NewAttachmentController(
 
 func (ac *AttachmentController) SetupRoutes(server *http.ServeMux) {
 	server.Handle("POST /api/tickets/{id}/attachments", middlewares.AuthMiddleware(http.HandlerFunc(ac.Upload), false))
-	server.Handle("GET /api/files/tickets/{ticket_id}/attachments/{attachment_id}", http.HandlerFunc(ac.ServeFile))
-	server.Handle("GET /api/files/comments/{comment_id}/attachments/{attachment_id}", http.HandlerFunc(ac.ServeCommentFile))
+	server.Handle("GET /api/files/tickets/{ticket_id}/attachments/{attachment_id}", middlewares.AuthMiddleware(http.HandlerFunc(ac.ServeFile), false))
+	server.Handle("GET /api/files/comments/{comment_id}/attachments/{attachment_id}", middlewares.AuthMiddleware(http.HandlerFunc(ac.ServeCommentFile), false))
 }
 
 func (ac *AttachmentController) Upload(w http.ResponseWriter, r *http.Request) {

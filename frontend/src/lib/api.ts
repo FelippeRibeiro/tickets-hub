@@ -118,6 +118,10 @@ export type Comment = {
   user_name: string
   user_has_avatar: boolean
   is_owner: boolean
+  parent_comment_id?: number | null
+  parent_user_name?: string
+  likes_count?: number
+  liked?: boolean
   attachments?: TicketAttachment[]
 }
 export type PaginatedComments = {
@@ -135,7 +139,7 @@ export type LikeSummary = {
 export type Notification = {
   id: number
   user_id: number
-  type: 'like' | 'comment' | 'participant_comment'
+  type: 'like' | 'comment' | 'participant_comment' | 'reply' | 'comment_like'
   ticket_id: number
   actor_id?: number
   actor_name: string
@@ -250,13 +254,20 @@ export function getUsers() {
   return api<User[]>('/api/users')
 }
 
-export function getTickets(topicId?: number, options?: { mine?: boolean }) {
+export function getTickets(
+  topicId?: number,
+  options?: { mine?: boolean; q?: string }
+) {
   const params = new URLSearchParams()
   if (topicId !== undefined && topicId > 0) {
     params.set('topic_id', String(topicId))
   }
   if (options?.mine) {
     params.set('mine', 'true')
+  }
+  const q = options?.q?.trim()
+  if (q) {
+    params.set('q', q)
   }
   const query = params.toString()
   return api<Ticket[]>(`/api/tickets${query ? `?${query}` : ''}`)
@@ -342,12 +353,17 @@ export function createTicketComment(
   ticketId: number,
   comment: string,
   files?: File[],
-  isAnonymous?: boolean
+  options?: { isAnonymous?: boolean; parentCommentId?: number }
 ) {
+  const isAnonymous = Boolean(options?.isAnonymous)
+  const parentId = options?.parentCommentId
   if (files && files.length > 0) {
     const form = new FormData()
     form.append('comment', comment)
-    form.append('is_anonymous', String(Boolean(isAnonymous)))
+    form.append('is_anonymous', String(isAnonymous))
+    if (parentId != null && parentId > 0) {
+      form.append('parent_comment_id', String(parentId))
+    }
     for (const f of files) {
       form.append('files', f)
     }
@@ -356,9 +372,16 @@ export function createTicketComment(
       body: form,
     })
   }
+  const body: Record<string, unknown> = {
+    comment,
+    is_anonymous: isAnonymous,
+  }
+  if (parentId != null && parentId > 0) {
+    body.parent_comment_id = parentId
+  }
   return api<Comment>(`/api/tickets/${ticketId}/comments`, {
     method: 'POST',
-    body: JSON.stringify({ comment, is_anonymous: Boolean(isAnonymous) }),
+    body: JSON.stringify(body),
   })
 }
 
@@ -398,6 +421,18 @@ export function likeTicket(ticketId: number) {
 
 export function unlikeTicket(ticketId: number) {
   return api<void>(`/api/tickets/${ticketId}/likes`, {
+    method: 'DELETE',
+  })
+}
+
+export function likeComment(commentId: number) {
+  return api<LikeSummary>(`/api/comments/${commentId}/likes`, {
+    method: 'POST',
+  })
+}
+
+export function unlikeComment(commentId: number) {
+  return api<LikeSummary>(`/api/comments/${commentId}/likes`, {
     method: 'DELETE',
   })
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Heart, MessageCircle, Trash2 } from 'lucide-react';
+import { ArrowLeft, Heart, MessageCircle, Reply, Trash2 } from 'lucide-react';
 import {
   ApiError,
   createTicketComment,
@@ -9,9 +9,11 @@ import {
   getTicket,
   getTicketComments,
   getTicketLikes,
+  likeComment,
   likeTicket,
   uploadTicketAttachment,
   type Comment,
+  unlikeComment,
   unlikeTicket,
   type Ticket,
   type TicketAttachment,
@@ -131,6 +133,8 @@ export function TicketDetailPage() {
   const [deletingTicket, setDeletingTicket] = useState(false);
   const [commentToDelete, setCommentToDelete] = useState<Comment | null>(null);
   const [deletingComment, setDeletingComment] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<Comment | null>(null);
+  const [pendingCommentLike, setPendingCommentLike] = useState<Record<number, boolean>>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const commentFileInputRef = useRef<HTMLInputElement | null>(null);
   const commentsContainerRef = useRef<HTMLDivElement | null>(null);
@@ -216,6 +220,38 @@ export function TicketDetailPage() {
     return () => el.removeEventListener('scroll', onScroll);
   }, [ticket, hasMoreComments, loadingComments, nextOffset]);
 
+  async function onToggleCommentLike(e: React.MouseEvent, commentId: number) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user || pendingCommentLike[commentId]) {
+      return;
+    }
+    setPendingCommentLike((prev) => ({ ...prev, [commentId]: true }));
+    try {
+      const target = comments.find((c) => c.id === commentId);
+      const isLiked = Boolean(target?.liked);
+      if (isLiked) {
+        const summary = await unlikeComment(commentId);
+        setComments((prev) =>
+          prev.map((c) =>
+            c.id === commentId ? { ...c, liked: summary.liked, likes_count: summary.count } : c,
+          ),
+        );
+      } else {
+        const summary = await likeComment(commentId);
+        setComments((prev) =>
+          prev.map((c) =>
+            c.id === commentId ? { ...c, liked: summary.liked, likes_count: summary.count } : c,
+          ),
+        );
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Falha ao atualizar curtida do comentário');
+    } finally {
+      setPendingCommentLike((prev) => ({ ...prev, [commentId]: false }));
+    }
+  }
+
   async function onToggleLike() {
     if (!user || !ticket || togglingLike) {
       return;
@@ -259,7 +295,10 @@ export function TicketDetailPage() {
 
   async function onSubmitComment(e: React.FormEvent) {
     e.preventDefault();
-    if (!ticket || sendingComment) {
+    if (sendingComment) {
+      return;
+    }
+    if (!ticket) {
       return;
     }
     const trimmed = commentText.trim();
@@ -268,11 +307,15 @@ export function TicketDetailPage() {
     }
     setSendingComment(true);
     try {
-      const created = await createTicketComment(ticket.id, trimmed, commentFiles.length > 0 ? commentFiles : undefined, anonymousComment);
+      const created = await createTicketComment(ticket.id, trimmed, commentFiles.length > 0 ? commentFiles : undefined, {
+        isAnonymous: anonymousComment,
+        parentCommentId: replyingTo?.id,
+      });
       setComments((prev) => [...prev, created]);
       setCommentText('');
       setCommentFiles([]);
       setAnonymousComment(false);
+      setReplyingTo(null);
       if (commentFileInputRef.current) {
         commentFileInputRef.current.value = '';
       }
@@ -359,7 +402,7 @@ export function TicketDetailPage() {
         <Button type="button" variant="ghost" size="icon-sm" aria-label="Voltar" onClick={() => navigate(-1)}>
           <ArrowLeft className="size-4" />
         </Button>
-        <Link to={user ? '/' : '/login'} className="text-sm font-semibold hover:underline">
+        <Link to="/" className="text-sm font-semibold hover:underline">
           Ticket
         </Link>
       </header>
@@ -453,6 +496,17 @@ export function TicketDetailPage() {
               <Separator className="my-3" />
               {user ? (
                 <form onSubmit={onSubmitComment} className="space-y-3 rounded-xl border border-border/70 bg-muted/20 p-4">
+                  {replyingTo ? (
+                    <div className="flex items-center justify-between gap-2 rounded-lg border border-primary/25 bg-background/80 px-3 py-2 text-sm">
+                      <span className="min-w-0 truncate text-muted-foreground">
+                        Respondendo a{' '}
+                        <span className="font-medium text-foreground">{replyingTo.user_name}</span>
+                      </span>
+                      <Button type="button" variant="ghost" size="sm" className="shrink-0" onClick={() => setReplyingTo(null)}>
+                        Cancelar
+                      </Button>
+                    </div>
+                  ) : null}
                   <Textarea value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Escreva um comentário (ou só anexe mídia)..." rows={3} maxLength={5000} />
                   <div className="flex flex-wrap items-center gap-3">
                     <input
@@ -500,26 +554,75 @@ export function TicketDetailPage() {
                   <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">Ainda não há comentários neste ticket.</div>
                 ) : (
                   comments.map((comment) => (
-                    <article key={comment.id} className="rounded-xl border border-border bg-card p-3">
+                    <article
+                      key={comment.id}
+                      className={cn(
+                        'rounded-xl border border-border bg-card p-3',
+                        comment.parent_comment_id ? 'ml-1 border-l-2 border-primary/20 pl-4' : '',
+                      )}
+                    >
                       <div className="mb-2 flex items-center gap-2">
                         <UserAvatar userId={comment.user_id} name={comment.user_name} hasAvatar={Boolean(comment.user_has_avatar)} size="sm" />
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold">{comment.user_name}</p>
                           <p className="text-xs text-muted-foreground">{formatDate(comment.created_at)}</p>
                         </div>
-                        {comment.is_owner || (user && user.is_admin) ? (
-                          <Button type="button" variant="ghost" size="sm" className="ml-auto text-destructive hover:text-destructive" onClick={() => setCommentToDelete(comment)}>
-                            <Trash2 className="size-4" />
-                            Excluir
-                          </Button>
-                        ) : null}
+                        <div className="ml-auto flex shrink-0 items-center gap-1">
+                          {user ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 gap-1 text-muted-foreground hover:text-foreground"
+                              onClick={() => setReplyingTo(comment)}
+                            >
+                              <Reply className="size-3.5" />
+                              <span className="text-xs">Responder</span>
+                            </Button>
+                          ) : null}
+                          {comment.is_owner || (user && user.is_admin) ? (
+                            <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setCommentToDelete(comment)}>
+                              <Trash2 className="size-4" />
+                              Excluir
+                            </Button>
+                          ) : null}
+                        </div>
                       </div>
+                      {comment.parent_comment_id ? (
+                        <p className="mb-2 border-l-2 border-muted-foreground/40 pl-2 text-xs text-muted-foreground">
+                          Respondendo a{' '}
+                          <span className="font-medium text-foreground">
+                            {comment.parent_user_name?.trim() ? comment.parent_user_name : 'um comentário'}
+                          </span>
+                        </p>
+                      ) : null}
                       {comment.comment ? (
                         <p className="whitespace-pre-wrap wrap-anywhere text-sm leading-relaxed">
                           {renderTextWithLinks(comment.comment)}
                         </p>
                       ) : null}
                       {comment.attachments && comment.attachments.length > 0 ? <div className="mt-3 grid gap-3">{comment.attachments.map((a) => renderAttachmentMedia(a))}</div> : null}
+                      <div className="mt-3 flex items-center gap-2">
+                        {user ? (
+                          <button
+                            type="button"
+                            className={cn(
+                              'flex items-center gap-1.5 text-xs disabled:opacity-50',
+                              comment.liked ? 'text-red-400' : 'text-muted-foreground',
+                            )}
+                            disabled={Boolean(pendingCommentLike[comment.id])}
+                            onClick={(ev) => void onToggleCommentLike(ev, comment.id)}
+                          >
+                            <Heart className={cn('size-4', comment.liked ? 'fill-current opacity-100' : 'opacity-60')} />
+                            <span>{comment.likes_count ?? 0}</span>
+                          </button>
+                        ) : (
+                          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <Heart className="size-4 opacity-60" />
+                            {comment.likes_count ?? 0}
+                          </span>
+                        )}
+                      </div>
                     </article>
                   ))
                 )}

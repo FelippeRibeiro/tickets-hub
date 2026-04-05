@@ -48,7 +48,7 @@ func NewCommentController(
 }
 
 func (cc *CommentController) SetupRoutes(server *http.ServeMux) {
-	server.Handle("GET /api/tickets/{id}/comments", middlewares.OptionalAuthMiddleware(http.HandlerFunc(cc.ListComments)))
+	server.Handle("GET /api/tickets/{id}/comments", middlewares.AuthMiddleware(http.HandlerFunc(cc.ListComments), false))
 	server.Handle("POST /api/tickets/{id}/comments", middlewares.AuthMiddleware(http.HandlerFunc(cc.CreateComment), false))
 	server.Handle("DELETE /api/comments/{comment_id}", middlewares.AuthMiddleware(http.HandlerFunc(cc.DeleteComment), false))
 }
@@ -107,6 +107,14 @@ func (cc *CommentController) notifyTicketOwner(ticketID int, actorID int, commen
 	ticket, err := cc.ticketRepository.FindByID(ticketID)
 	if err != nil || ticket.UserID <= 0 || ticket.UserID == actorID {
 		return
+	}
+
+	// Resposta a um comentário cujo autor é o dono do ticket: notifyParentOnReply já envia "reply".
+	if comment != nil && comment.ParentCommentID != nil {
+		parent, perr := cc.commentRepository.FindByID(*comment.ParentCommentID)
+		if perr == nil && parent.UserId > 0 && parent.UserId == ticket.UserID {
+			return
+		}
 	}
 
 	var notificationCommentID *int
@@ -172,7 +180,11 @@ func (cc *CommentController) notifyPriorParticipants(ticketID int, actorID int, 
 
 func (cc *CommentController) ListComments(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	user, _ := r.Context().Value("user").(*utils.Claims)
+	user, ok := r.Context().Value("user").(*utils.Claims)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id <= 0 {
 		w.WriteHeader(http.StatusBadRequest)
@@ -211,7 +223,8 @@ func (cc *CommentController) ListComments(w http.ResponseWriter, r *http.Request
 		offset = parsed
 	}
 
-	comments, hasMore, err := cc.commentRepository.ListByTicket(id, limit, offset)
+	viewerID := user.UserID
+	comments, hasMore, err := cc.commentRepository.ListByTicket(id, limit, offset, viewerID)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
@@ -290,6 +303,12 @@ func (cc *CommentController) CreateComment(w http.ResponseWriter, r *http.Reques
 	}
 	comment.TicketId = id
 
+	if err := cc.validateParentComment(id, comment.ParentCommentID); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
 	created, err := cc.commentRepository.Create(user.UserID, &comment)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -298,11 +317,32 @@ func (cc *CommentController) CreateComment(w http.ResponseWriter, r *http.Reques
 	}
 	cc.notifyTicketOwner(id, user.UserID, &comment, created)
 	cc.notifyPriorParticipants(id, user.UserID, &comment, created)
+	cc.notifyParentOnReply(id, user.UserID, comment.ParentCommentID, created, &comment)
 	setCommentOwner(created, user)
 	anonymizeCommentAuthor(created)
 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(created)
+}
+
+func (cc *CommentController) validateParentComment(ticketID int, parentID *int) error {
+	if parentID == nil {
+		return nil
+	}
+	if *parentID <= 0 {
+		return fmt.Errorf("invalid parent_comment_id")
+	}
+	tid, err := cc.commentRepository.TicketIDForComment(*parentID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("parent comment not found")
+		}
+		return fmt.Errorf("parent comment not found")
+	}
+	if tid != ticketID {
+		return fmt.Errorf("parent comment belongs to another ticket")
+	}
+	return nil
 }
 
 func (cc *CommentController) createCommentMultipart(w http.ResponseWriter, r *http.Request, user *utils.Claims, ticketID int) {
@@ -341,6 +381,17 @@ func (cc *CommentController) createCommentMultipart(w http.ResponseWriter, r *ht
 	}
 
 	in := model.CreateComment{Comment: commentText, TicketId: ticketID, IsAnonymous: isAnonymous}
+	if raw := strings.TrimSpace(r.FormValue("parent_comment_id")); raw != "" {
+		pid, err := strconv.Atoi(raw)
+		if err == nil && pid > 0 {
+			in.ParentCommentID = &pid
+		}
+	}
+	if err := cc.validateParentComment(ticketID, in.ParentCommentID); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
 	created, err := cc.commentRepository.Create(user.UserID, &in)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -381,11 +432,35 @@ func (cc *CommentController) createCommentMultipart(w http.ResponseWriter, r *ht
 	}
 	cc.notifyTicketOwner(ticketID, user.UserID, &in, created)
 	cc.notifyPriorParticipants(ticketID, user.UserID, &in, created)
+	cc.notifyParentOnReply(ticketID, user.UserID, in.ParentCommentID, created, &in)
 	setCommentOwner(created, user)
 	anonymizeCommentAuthor(created)
 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(created)
+}
+
+func (cc *CommentController) notifyParentOnReply(ticketID int, actorID int, parentID *int, created *model.CommentWithUserName, comment *model.CreateComment) {
+	if parentID == nil || cc.notificationRepository == nil || cc.hub == nil || created == nil {
+		return
+	}
+	parent, err := cc.commentRepository.FindByID(*parentID)
+	if err != nil || parent.UserId <= 0 || parent.UserId == actorID {
+		return
+	}
+	actor := actorID
+	n, err := cc.notificationRepository.Create(
+		parent.UserId,
+		"reply",
+		ticketID,
+		&actor,
+		comment != nil && comment.IsAnonymous,
+		&created.CommentId,
+	)
+	if err != nil || n == nil {
+		return
+	}
+	cc.hub.BroadcastNotification(parent.UserId, *n)
 }
 
 func (cc *CommentController) DeleteComment(w http.ResponseWriter, r *http.Request) {
