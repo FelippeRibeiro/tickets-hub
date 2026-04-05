@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Heart, MessageCircle, Reply, Trash2 } from 'lucide-react';
 import {
@@ -72,6 +72,46 @@ function normalizeCommentsPage(payload: unknown, fallbackLimit = 10, fallbackOff
   };
 }
 
+type CommentNode = { comment: Comment; children: CommentNode[] };
+
+/** Agrupa comentários em árvore (respostas logo abaixo do pai). */
+function buildCommentTree(flat: Comment[]): CommentNode[] {
+  if (flat.length === 0) return [];
+  const byDate = (a: Comment, b: Comment) =>
+    new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+  const ids = new Set(flat.map((c) => c.id));
+  const roots = flat.filter((c) => !c.parent_comment_id || !ids.has(c.parent_comment_id));
+  roots.sort(byDate);
+
+  function childrenOf(parentId: number): CommentNode[] {
+    const kids = flat.filter((c) => c.parent_comment_id === parentId);
+    kids.sort(byDate);
+    return kids.map((c) => ({ comment: c, children: childrenOf(c.id) }));
+  }
+
+  return roots.map((c) => ({ comment: c, children: childrenOf(c.id) }));
+}
+
+/** Remove um comentário e todos os descendentes (alinhado a ON DELETE CASCADE no servidor). */
+function removeCommentBranch(flat: Comment[], removeId: number): Comment[] {
+  const byParent = new Map<number, number[]>();
+  for (const c of flat) {
+    if (c.parent_comment_id) {
+      const list = byParent.get(c.parent_comment_id) ?? [];
+      list.push(c.id);
+      byParent.set(c.parent_comment_id, list);
+    }
+  }
+  const drop = new Set<number>();
+  const stack = [removeId];
+  while (stack.length > 0) {
+    const id = stack.pop()!;
+    drop.add(id);
+    for (const cid of byParent.get(id) ?? []) stack.push(cid);
+  }
+  return flat.filter((c) => !drop.has(c.id));
+}
+
 const urlPattern = /https?:\/\/[^\s<>"'`]+/gi;
 
 function extractFirstURL(text: string) {
@@ -137,6 +177,8 @@ export function TicketDetailPage() {
   const [pendingCommentLike, setPendingCommentLike] = useState<Record<number, boolean>>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const commentFileInputRef = useRef<HTMLInputElement | null>(null);
+  const commentFormRef = useRef<HTMLDivElement | null>(null);
+  const commentTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const commentsContainerRef = useRef<HTMLDivElement | null>(null);
   const COMMENT_PAGE_SIZE = 10;
 
@@ -148,6 +190,23 @@ export function TicketDetailPage() {
     return `${count} comentário${count === 1 ? '' : 's'}`;
   }, [ticket?.comments_count, comments.length]);
   const ticketLink = useMemo(() => (ticket ? extractFirstURL(ticket.description) : null), [ticket]);
+
+  const commentTree = useMemo(() => buildCommentTree(comments), [comments]);
+
+  const scrollToCommentForm = useCallback(() => {
+    window.setTimeout(() => {
+      commentFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      commentTextareaRef.current?.focus();
+    }, 0);
+  }, []);
+
+  const beginReplyTo = useCallback(
+    (c: Comment) => {
+      setReplyingTo(c);
+      scrollToCommentForm();
+    },
+    [scrollToCommentForm],
+  );
 
   async function loadCommentsPage(targetTicketID: number, offset: number) {
     if (loadingComments) {
@@ -163,6 +222,23 @@ export function TicketDetailPage() {
       setComments((prev) => (offset === 0 ? normalized.items : [...prev, ...normalized.items]));
       setHasMoreComments(normalized.has_more);
       setNextOffset(normalized.next_offset);
+    } finally {
+      setLoadingComments(false);
+    }
+  }
+
+  /** Recarrega comentários desde o início (ex.: após publicar), com limite suficiente para montar a árvore. */
+  async function reloadCommentsAfterPost(targetTicketID: number, minCount: number) {
+    const limit = Math.min(Math.max(minCount, COMMENT_PAGE_SIZE), 500);
+    setLoadingComments(true);
+    try {
+      const page = await getTicketComments(targetTicketID, { limit, offset: 0 });
+      const normalized = normalizeCommentsPage(page, limit, 0);
+      setComments(normalized.items);
+      setHasMoreComments(normalized.has_more);
+      setNextOffset(normalized.next_offset);
+    } catch {
+      /* mantém lista atual se falhar */
     } finally {
       setLoadingComments(false);
     }
@@ -307,11 +383,11 @@ export function TicketDetailPage() {
     }
     setSendingComment(true);
     try {
-      const created = await createTicketComment(ticket.id, trimmed, commentFiles.length > 0 ? commentFiles : undefined, {
+      await createTicketComment(ticket.id, trimmed, commentFiles.length > 0 ? commentFiles : undefined, {
         isAnonymous: anonymousComment,
         parentCommentId: replyingTo?.id,
       });
-      setComments((prev) => [...prev, created]);
+      const nextCount = (ticket.comments_count ?? 0) + 1;
       setCommentText('');
       setCommentFiles([]);
       setAnonymousComment(false);
@@ -323,10 +399,11 @@ export function TicketDetailPage() {
         prev
           ? {
               ...prev,
-              comments_count: (prev.comments_count ?? 0) + 1,
+              comments_count: nextCount,
             }
           : prev,
       );
+      await reloadCommentsAfterPost(ticket.id, nextCount);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Falha ao enviar comentário');
     } finally {
@@ -357,12 +434,17 @@ export function TicketDetailPage() {
     setDeletingComment(true);
     try {
       await deleteComment(commentToDelete.id);
-      setComments((prev) => prev.filter((comment) => comment.id !== commentToDelete.id));
+      let removed = 0;
+      setComments((prev) => {
+        const next = removeCommentBranch(prev, commentToDelete.id);
+        removed = prev.length - next.length;
+        return next;
+      });
       setTicket((prev) =>
         prev
           ? {
               ...prev,
-              comments_count: Math.max((prev.comments_count ?? 1) - 1, 0),
+              comments_count: Math.max((prev.comments_count ?? 0) - removed, 0),
             }
           : prev,
       );
@@ -393,6 +475,92 @@ export function TicketDetailPage() {
       <a key={a.id} href={a.url} className="text-sm text-primary underline" target="_blank" rel="noreferrer">
         {a.original_name}
       </a>
+    );
+  }
+
+  function renderCommentNodes(nodes: CommentNode[], depth: number): ReactNode {
+    return (
+      <>
+        {nodes.map((node) => {
+          const { comment } = node;
+          return (
+            <div key={comment.id} className="space-y-2">
+              <article
+                className={cn(
+                  'rounded-xl border border-border bg-card p-3',
+                  depth > 0 && 'bg-muted/15',
+                )}
+              >
+                <div className="mb-2 flex items-center gap-2">
+                  <UserAvatar userId={comment.user_id} name={comment.user_name} hasAvatar={Boolean(comment.user_has_avatar)} size="sm" />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">{comment.user_name}</p>
+                    <p className="text-xs text-muted-foreground">{formatDate(comment.created_at)}</p>
+                  </div>
+                  <div className="ml-auto flex shrink-0 items-center gap-1">
+                    {user ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 gap-1 text-muted-foreground hover:text-foreground"
+                        onClick={() => beginReplyTo(comment)}
+                      >
+                        <Reply className="size-3.5" />
+                        <span className="text-xs">Responder</span>
+                      </Button>
+                    ) : null}
+                    {comment.is_owner || (user && user.is_admin) ? (
+                      <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setCommentToDelete(comment)}>
+                        <Trash2 className="size-4" />
+                        Excluir
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+                {comment.parent_comment_id ? (
+                  <p className="mb-2 border-l-2 border-muted-foreground/40 pl-2 text-xs text-muted-foreground">
+                    Respondendo a{' '}
+                    <span className="font-medium text-foreground">
+                      {comment.parent_user_name?.trim() ? comment.parent_user_name : 'um comentário'}
+                    </span>
+                  </p>
+                ) : null}
+                {comment.comment ? (
+                  <p className="whitespace-pre-wrap wrap-anywhere text-sm leading-relaxed">{renderTextWithLinks(comment.comment)}</p>
+                ) : null}
+                {comment.attachments && comment.attachments.length > 0 ? (
+                  <div className="mt-3 grid gap-3">{comment.attachments.map((a) => renderAttachmentMedia(a))}</div>
+                ) : null}
+                <div className="mt-3 flex items-center gap-2">
+                  {user ? (
+                    <button
+                      type="button"
+                      className={cn(
+                        'flex items-center gap-1.5 text-xs disabled:opacity-50',
+                        comment.liked ? 'text-red-400' : 'text-muted-foreground',
+                      )}
+                      disabled={Boolean(pendingCommentLike[comment.id])}
+                      onClick={(ev) => void onToggleCommentLike(ev, comment.id)}
+                    >
+                      <Heart className={cn('size-4', comment.liked ? 'fill-current opacity-100' : 'opacity-60')} />
+                      <span>{comment.likes_count ?? 0}</span>
+                    </button>
+                  ) : (
+                    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Heart className="size-4 opacity-60" />
+                      {comment.likes_count ?? 0}
+                    </span>
+                  )}
+                </div>
+              </article>
+              {node.children.length > 0 ? (
+                <div className="ml-1 space-y-2 border-l-2 border-primary/25 pl-3">{renderCommentNodes(node.children, depth + 1)}</div>
+              ) : null}
+            </div>
+          );
+        })}
+      </>
     );
   }
 
@@ -494,141 +662,81 @@ export function TicketDetailPage() {
             <section className="pt-7">
               <h2 className="px-1 text-lg font-bold">Comentários</h2>
               <Separator className="my-3" />
+
+              <div ref={commentsContainerRef} className="mt-4 max-h-104 space-y-3 overflow-y-auto pr-1">
+                {comments.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+                    Ainda não há comentários neste ticket.
+                  </div>
+                ) : (
+                  renderCommentNodes(commentTree, 0)
+                )}
+                {loadingComments ? <p className="py-2 text-center text-xs text-muted-foreground">Carregando mais comentários…</p> : null}
+                {!hasMoreComments && comments.length > 0 ? (
+                  <p className="py-2 text-center text-xs text-muted-foreground">Fim dos comentários.</p>
+                ) : null}
+              </div>
+
               {user ? (
-                <form onSubmit={onSubmitComment} className="space-y-3 rounded-xl border border-border/70 bg-muted/20 p-4">
-                  {replyingTo ? (
-                    <div className="flex items-center justify-between gap-2 rounded-lg border border-primary/25 bg-background/80 px-3 py-2 text-sm">
-                      <span className="min-w-0 truncate text-muted-foreground">
-                        Respondendo a{' '}
-                        <span className="font-medium text-foreground">{replyingTo.user_name}</span>
-                      </span>
-                      <Button type="button" variant="ghost" size="sm" className="shrink-0" onClick={() => setReplyingTo(null)}>
-                        Cancelar
+                <div ref={commentFormRef} className="mt-6 scroll-mt-24">
+                  <form onSubmit={onSubmitComment} className="space-y-3 rounded-xl border border-border/70 bg-muted/20 p-4">
+                    {replyingTo ? (
+                      <div className="flex items-center justify-between gap-2 rounded-lg border border-primary/25 bg-background/80 px-3 py-2 text-sm">
+                        <span className="min-w-0 truncate text-muted-foreground">
+                          Respondendo a <span className="font-medium text-foreground">{replyingTo.user_name}</span>
+                        </span>
+                        <Button type="button" variant="ghost" size="sm" className="shrink-0" onClick={() => setReplyingTo(null)}>
+                          Cancelar
+                        </Button>
+                      </div>
+                    ) : null}
+                    <Textarea
+                      ref={commentTextareaRef}
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      placeholder="Escreva um comentário (ou só anexe mídia)..."
+                      rows={3}
+                      maxLength={5000}
+                    />
+                    <div className="flex flex-wrap items-center gap-3">
+                      <input
+                        ref={commentFileInputRef}
+                        type="file"
+                        accept="image/*,video/*"
+                        multiple
+                        className="max-w-full text-sm file:mr-2 file:rounded-md file:border-0 file:bg-secondary file:px-2 file:py-1 file:text-sm"
+                        onChange={(e) => {
+                          const list = e.target.files;
+                          setCommentFiles(list ? Array.from(list) : []);
+                        }}
+                      />
+                      {commentFiles.length > 0 ? (
+                        <span className="text-xs text-muted-foreground">
+                          {commentFiles.length} {commentFiles.length === 1 ? 'arquivo' : 'arquivos'}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Você pode selecionar várias mídias de uma vez.</span>
+                      )}
+                    </div>
+                    <label className="flex items-start gap-3 rounded-lg border border-border/70 bg-background/60 p-3">
+                      <input type="checkbox" checked={anonymousComment} onChange={(e) => setAnonymousComment(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-border" />
+                      <span className="text-sm text-muted-foreground">Comentar anonimamente. Seu nome e foto nao serao exibidos neste comentario.</span>
+                    </label>
+                    <div className="flex justify-end">
+                      <Button type="submit" disabled={sendingComment || (!commentText.trim() && commentFiles.length === 0)}>
+                        {sendingComment ? 'Enviando...' : 'Comentar'}
                       </Button>
                     </div>
-                  ) : null}
-                  <Textarea value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Escreva um comentário (ou só anexe mídia)..." rows={3} maxLength={5000} />
-                  <div className="flex flex-wrap items-center gap-3">
-                    <input
-                      ref={commentFileInputRef}
-                      type="file"
-                      accept="image/*,video/*"
-                      multiple
-                      className="max-w-full text-sm file:mr-2 file:rounded-md file:border-0 file:bg-secondary file:px-2 file:py-1 file:text-sm"
-                      onChange={(e) => {
-                        const list = e.target.files;
-                        setCommentFiles(list ? Array.from(list) : []);
-                      }}
-                    />
-                    {commentFiles.length > 0 ? (
-                      <span className="text-xs text-muted-foreground">
-                        {commentFiles.length} {commentFiles.length === 1 ? 'arquivo' : 'arquivos'}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">
-                        Você pode selecionar várias mídias de uma vez.
-                      </span>
-                    )}
-                  </div>
-                  <label className="flex items-start gap-3 rounded-lg border border-border/70 bg-background/60 p-3">
-                    <input type="checkbox" checked={anonymousComment} onChange={(e) => setAnonymousComment(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-border" />
-                    <span className="text-sm text-muted-foreground">Comentar anonimamente. Seu nome e foto nao serao exibidos neste comentario.</span>
-                  </label>
-                  <div className="flex justify-end">
-                    <Button type="submit" disabled={sendingComment || (!commentText.trim() && commentFiles.length === 0)}>
-                      {sendingComment ? 'Enviando...' : 'Comentar'}
-                    </Button>
-                  </div>
-                </form>
+                  </form>
+                </div>
               ) : (
-                <p className="rounded-xl border border-dashed border-border/70 bg-muted/10 px-4 py-3 text-sm text-muted-foreground">
+                <p className="mt-6 rounded-xl border border-dashed border-border/70 bg-muted/10 px-4 py-3 text-sm text-muted-foreground">
                   Entre para comentar.{' '}
                   <Link to="/login" className="font-medium text-primary underline-offset-4 hover:underline">
                     Entrar
                   </Link>
                 </p>
               )}
-
-              <div ref={commentsContainerRef} className="mt-4 max-h-104 space-y-3 overflow-y-auto pr-1">
-                {comments.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">Ainda não há comentários neste ticket.</div>
-                ) : (
-                  comments.map((comment) => (
-                    <article
-                      key={comment.id}
-                      className={cn(
-                        'rounded-xl border border-border bg-card p-3',
-                        comment.parent_comment_id ? 'ml-1 border-l-2 border-primary/20 pl-4' : '',
-                      )}
-                    >
-                      <div className="mb-2 flex items-center gap-2">
-                        <UserAvatar userId={comment.user_id} name={comment.user_name} hasAvatar={Boolean(comment.user_has_avatar)} size="sm" />
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold">{comment.user_name}</p>
-                          <p className="text-xs text-muted-foreground">{formatDate(comment.created_at)}</p>
-                        </div>
-                        <div className="ml-auto flex shrink-0 items-center gap-1">
-                          {user ? (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 gap-1 text-muted-foreground hover:text-foreground"
-                              onClick={() => setReplyingTo(comment)}
-                            >
-                              <Reply className="size-3.5" />
-                              <span className="text-xs">Responder</span>
-                            </Button>
-                          ) : null}
-                          {comment.is_owner || (user && user.is_admin) ? (
-                            <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setCommentToDelete(comment)}>
-                              <Trash2 className="size-4" />
-                              Excluir
-                            </Button>
-                          ) : null}
-                        </div>
-                      </div>
-                      {comment.parent_comment_id ? (
-                        <p className="mb-2 border-l-2 border-muted-foreground/40 pl-2 text-xs text-muted-foreground">
-                          Respondendo a{' '}
-                          <span className="font-medium text-foreground">
-                            {comment.parent_user_name?.trim() ? comment.parent_user_name : 'um comentário'}
-                          </span>
-                        </p>
-                      ) : null}
-                      {comment.comment ? (
-                        <p className="whitespace-pre-wrap wrap-anywhere text-sm leading-relaxed">
-                          {renderTextWithLinks(comment.comment)}
-                        </p>
-                      ) : null}
-                      {comment.attachments && comment.attachments.length > 0 ? <div className="mt-3 grid gap-3">{comment.attachments.map((a) => renderAttachmentMedia(a))}</div> : null}
-                      <div className="mt-3 flex items-center gap-2">
-                        {user ? (
-                          <button
-                            type="button"
-                            className={cn(
-                              'flex items-center gap-1.5 text-xs disabled:opacity-50',
-                              comment.liked ? 'text-red-400' : 'text-muted-foreground',
-                            )}
-                            disabled={Boolean(pendingCommentLike[comment.id])}
-                            onClick={(ev) => void onToggleCommentLike(ev, comment.id)}
-                          >
-                            <Heart className={cn('size-4', comment.liked ? 'fill-current opacity-100' : 'opacity-60')} />
-                            <span>{comment.likes_count ?? 0}</span>
-                          </button>
-                        ) : (
-                          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <Heart className="size-4 opacity-60" />
-                            {comment.likes_count ?? 0}
-                          </span>
-                        )}
-                      </div>
-                    </article>
-                  ))
-                )}
-                {loadingComments ? <p className="py-2 text-center text-xs text-muted-foreground">Carregando mais comentários…</p> : null}
-                {!hasMoreComments && comments.length > 0 ? <p className="py-2 text-center text-xs text-muted-foreground">Fim dos comentários.</p> : null}
-              </div>
             </section>
           </>
         ) : null}

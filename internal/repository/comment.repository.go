@@ -43,21 +43,32 @@ func (cr *CommentRepository) Create(userID int, comment *model.CreateComment) (*
 
 	var out model.CommentWithUserName
 	err := cr.db.Get(&out, `
-		INSERT INTO comments (comment, user_id, ticket_id, is_anonymous, parent_comment_id) 
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING 
-			id,
-			comment,
-			created_at,
-			user_id,
-			ticket_id,
-			is_anonymous,
-			parent_comment_id,
-			(SELECT name FROM users WHERE id = $2) AS user_name,
-			(SELECT (COALESCE(octet_length(avatar_data), 0) > 0) FROM users WHERE id = $2) AS user_has_avatar,
+		WITH ins AS (
+			INSERT INTO comments (comment, user_id, ticket_id, is_anonymous, parent_comment_id)
+			VALUES ($1, $2, $3, $4, $5)
+			RETURNING id, comment, created_at, user_id, ticket_id, is_anonymous, parent_comment_id
+		)
+		SELECT
+			ins.id,
+			ins.comment,
+			ins.created_at,
+			COALESCE(ins.user_id, 0) AS user_id,
+			ins.ticket_id,
+			ins.is_anonymous,
+			ins.parent_comment_id,
+			COALESCE(u.name, 'Usuário não encontrado') AS user_name,
+			(COALESCE(octet_length(u.avatar_data), 0) > 0) AS user_has_avatar,
 			0 AS likes_count,
 			false AS liked,
-			'' AS parent_user_name
+			CASE
+				WHEN ins.parent_comment_id IS NULL THEN ''
+				WHEN p.is_anonymous THEN 'Usuário anônimo'
+				ELSE COALESCE(pu.name, '')
+			END AS parent_user_name
+		FROM ins
+		LEFT JOIN users u ON ins.user_id = u.id
+		LEFT JOIN comments p ON p.id = ins.parent_comment_id
+		LEFT JOIN users pu ON p.user_id = pu.id AND COALESCE(p.is_anonymous, FALSE) = FALSE
 	`, comment.Comment, userID, comment.TicketId, comment.IsAnonymous, parent)
 	if err != nil {
 		return nil, err
