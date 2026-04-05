@@ -88,7 +88,7 @@ func NotifyNewTicket(ctx context.Context, webhookURL, publicBaseURL string, tick
 	}
 
 	desc := fmt.Sprintf(
-		"**Publicado por:** %s\n**Título:** %s\n**Tópico:** %s\n**Trecho (30%% da descrição):**\n%s\n\n%s",
+		"**Publicado por:** %s\n**Título:** %s\n**Tópico:** %s\n**Descrição resumida:**\n%s\n\n%s",
 		publishedBy,
 		title,
 		topic,
