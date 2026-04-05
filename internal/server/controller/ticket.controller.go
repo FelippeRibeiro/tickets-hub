@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -12,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/FelippeRibeiro/tickets-hub/internal/model"
+	"github.com/FelippeRibeiro/tickets-hub/internal/notify/discord"
 	"github.com/FelippeRibeiro/tickets-hub/internal/repository"
 	"github.com/FelippeRibeiro/tickets-hub/internal/server/middlewares"
 	"github.com/FelippeRibeiro/tickets-hub/internal/server/realtime"
@@ -89,6 +91,25 @@ func (tc *TicketController) broadcastNewTicket(full *model.TicketWithUserName, a
 		AuthorUserID: authorForAvatar,
 		IsAnonymous:  full.IsAnonymous,
 	})
+}
+
+func (tc *TicketController) notifyDiscordNewTicket(full *model.TicketWithUserName) {
+	webhook := strings.TrimSpace(os.Getenv("DISCORD_WEBHOOK_URL"))
+	base := strings.TrimSpace(os.Getenv("PUBLIC_BASE_URL"))
+	if webhook == "" || base == "" || full == nil {
+		return
+	}
+	t := full
+	go func() {
+		publishedBy := strings.TrimSpace(t.UserName)
+		if publishedBy == "" {
+			publishedBy = "Desconhecido"
+		}
+		if t.IsAnonymous {
+			publishedBy = "Anônimo"
+		}
+		_ = discord.NotifyNewTicket(context.Background(), webhook, base, t.ID, t.Title, t.TopicName, t.Description, t.IsAnonymous, publishedBy)
+	}()
 }
 
 func (tc *TicketController) GetTicket(w http.ResponseWriter, r *http.Request) {
@@ -271,6 +292,7 @@ func (tc *TicketController) CreateTicket(w http.ResponseWriter, r *http.Request)
 	}
 
 	tc.broadcastNewTicket(full, user.UserID)
+	tc.notifyDiscordNewTicket(full)
 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(full)
@@ -357,6 +379,7 @@ func (tc *TicketController) createTicketMultipart(w http.ResponseWriter, r *http
 	}
 
 	tc.broadcastNewTicket(full, user.UserID)
+	tc.notifyDiscordNewTicket(full)
 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(full)
