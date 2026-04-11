@@ -20,6 +20,7 @@ import {
 } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
+import { MediaCarousel } from '@/components/media-carousel';
 import { AttachmentPreview } from '@/components/attachment-preview';
 import { LinkPreviewCard } from '@/components/link-preview-card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -585,67 +586,69 @@ export function TicketDetailPage() {
           <p className="p-6 text-center text-sm text-destructive">{error}</p>
         ) : ticket ? (
           <>
-            <article className="rounded-xl border border-border/70 bg-card/60 p-5 shadow-sm">
-              <div className="flex items-start gap-3">
-                <UserAvatar userId={ticket.user_id} name={ticket.user_name} hasAvatar={Boolean(ticket.user_has_avatar)} className="size-12 self-start" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-bold">{ticket.user_name}</span>
-                        <span className="text-muted-foreground">·</span>
-                        <span className="text-sm text-muted-foreground">{formatDate(ticket.created_at)}</span>
+            <article className="overflow-hidden rounded-xl border border-border/70 bg-card/60 shadow-sm">
+              <div className="p-5">
+                <div className="flex items-start gap-3">
+                  <UserAvatar userId={ticket.user_id} name={ticket.user_name} hasAvatar={Boolean(ticket.user_has_avatar)} className="size-12 self-start" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-bold">{ticket.user_name}</span>
+                          <span className="text-muted-foreground">·</span>
+                          <span className="text-sm text-muted-foreground">{formatDate(ticket.created_at)}</span>
+                        </div>
+                        <p className="mt-1 text-sm text-primary">{ticket.topic_name || `Tópico #${ticket.topic_id}`}</p>
                       </div>
-                      <p className="mt-1 text-sm text-primary">{ticket.topic_name || `Tópico #${ticket.topic_id}`}</p>
+                      {canDeleteTicket ? (
+                        <Button type="button" variant="destructive" size="sm" className="shrink-0" onClick={() => setDeleteDialogOpen(true)}>
+                          <Trash2 className="size-4" />
+                          Excluir
+                        </Button>
+                      ) : null}
                     </div>
-                    {canDeleteTicket ? (
-                      <Button type="button" variant="destructive" size="sm" className="shrink-0" onClick={() => setDeleteDialogOpen(true)}>
-                        <Trash2 className="size-4" />
-                        Excluir
-                      </Button>
-                    ) : null}
-                  </div>
-                  <h1 className="mt-3 text-2xl font-bold leading-tight tracking-tight">{ticket.title}</h1>
-                  <p className="mt-4 whitespace-pre-wrap wrap-anywhere text-[15px] leading-relaxed text-foreground">
-                    {renderTextWithLinks(ticket.description)}
-                  </p>
-                  {ticketLink ? <LinkPreviewCard url={ticketLink} /> : null}
-                  <div className="mt-6 flex flex-wrap gap-8 border-t border-border/70 pt-4 text-muted-foreground">
-                    {user ? (
-                      <button
-                        type="button"
-                        className={`flex items-center gap-2 text-sm disabled:opacity-50 cursor-pointer ${liked ? 'text-red-400' : 'text-muted-foreground'}`}
-                        onClick={onToggleLike}
-                        disabled={togglingLike}
-                      >
-                        <Heart className={cn('size-5', liked ? 'fill-current opacity-100' : 'opacity-60')} />
-                        <span>
-                          {likesCount} curtida{likesCount === 1 ? '' : 's'}
-                        </span>
-                      </button>
-                    ) : (
-                      <span className="flex items-center gap-2 text-sm">
-                        <Heart className="size-5 opacity-60" />
-                        <span>
-                          {likesCount} curtida{likesCount === 1 ? '' : 's'}
-                        </span>
-                      </span>
-                    )}
-                    <span className="flex items-center gap-2 text-sm">
-                      <MessageCircle className="size-5" />
-                      <span>{commentsCountLabel}</span>
-                    </span>
+                    <h1 className="mt-3 text-2xl font-bold leading-tight tracking-tight">{ticket.title}</h1>
+                    <p className="mt-4 whitespace-pre-wrap wrap-anywhere text-[15px] leading-relaxed text-foreground">
+                      {renderTextWithLinks(ticket.description)}
+                    </p>
                   </div>
                 </div>
               </div>
+              {ticket.attachments && ticket.attachments.length > 0 ? (
+                <div className="border-t border-border/50 bg-muted/10 px-0 pt-3">
+                  <MediaCarousel attachments={ticket.attachments} className="px-5" />
+                </div>
+              ) : null}
+              <div className="space-y-4 p-5 pt-4">
+                {ticketLink ? <LinkPreviewCard url={ticketLink} /> : null}
+                <div className="flex flex-wrap gap-8 border-t border-border/70 pt-4 text-muted-foreground">
+                  {user ? (
+                    <button
+                      type="button"
+                      className={`flex items-center gap-2 text-sm disabled:opacity-50 cursor-pointer ${liked ? 'text-red-400' : 'text-muted-foreground'}`}
+                      onClick={onToggleLike}
+                      disabled={togglingLike}
+                    >
+                      <Heart className={cn('size-5', liked ? 'fill-current opacity-100' : 'opacity-60')} />
+                      <span>
+                        {likesCount} curtida{likesCount === 1 ? '' : 's'}
+                      </span>
+                    </button>
+                  ) : (
+                    <span className="flex items-center gap-2 text-sm">
+                      <Heart className="size-5 opacity-60" />
+                      <span>
+                        {likesCount} curtida{likesCount === 1 ? '' : 's'}
+                      </span>
+                    </span>
+                  )}
+                  <span className="flex items-center gap-2 text-sm">
+                    <MessageCircle className="size-5" />
+                    <span>{commentsCountLabel}</span>
+                  </span>
+                </div>
+              </div>
             </article>
-
-            {ticket.attachments && ticket.attachments.length > 0 ? (
-              <section className="mt-6 space-y-3">
-                <h2 className="px-1 text-lg font-bold">Anexos</h2>
-                <div className="grid gap-4 sm:grid-cols-1">{ticket.attachments.map((a) => renderAttachmentMedia(a))}</div>
-              </section>
-            ) : null}
 
             {canUploadAttachments ? (
               <div className="mt-6 rounded-xl border border-border/70 bg-muted/20 p-4">
