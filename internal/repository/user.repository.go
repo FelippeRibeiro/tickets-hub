@@ -22,7 +22,7 @@ func NewUserRepository(db *sqlx.DB) *UserRepository {
 
 func (ur *UserRepository) FindAll() ([]model.User, error) {
 	users := []model.User{}
-	err := ur.db.Select(&users, "SELECT "+userSelectableColumns+" FROM users;")
+	err := ur.db.Select(&users, "SELECT "+userSelectableColumns+" FROM users ORDER BY id ASC;")
 	if err != nil {
 		return nil, err
 	}
