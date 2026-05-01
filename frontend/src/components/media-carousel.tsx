@@ -111,7 +111,15 @@ export function MediaCarousel({ attachments, variant = 'default', className }: P
             )}
           >
             {visual.map((a) => (
-              <div key={a.id} className={cn(slideClass, 'flex-shrink-0')}>
+              <div
+                key={a.id}
+                className={cn(
+                  slideClass,
+                  'flex-shrink-0',
+                  /* Vídeo precisa de área clicável própria: não usar botão-trigger por cima (quebra controles no mobile). */
+                  !a.mime_type.startsWith('image/') && 'flex w-full justify-center px-1',
+                )}
+              >
                 {a.mime_type.startsWith('image/') ? (
                   <AttachmentPreview attachment={a}>
                     <img
@@ -125,22 +133,19 @@ export function MediaCarousel({ attachments, variant = 'default', className }: P
                     />
                   </AttachmentPreview>
                 ) : (
-                  <AttachmentPreview attachment={a}>
-                    <div
-                      className={cn(
-                        'overflow-hidden rounded-lg border border-border/60 bg-black/50',
-                        compact ? 'aspect-video max-h-40' : 'max-h-[min(70vh,28rem)] min-h-[12rem]',
-                      )}
-                    >
-                      <video
-                        src={a.url}
-                        controls
-                        className="h-full w-full object-contain"
-                        preload="metadata"
-                        playsInline
-                      />
-                    </div>
-                  </AttachmentPreview>
+                  <video
+                    src={a.url}
+                    controls
+                    className={cn(
+                      'block rounded-lg border border-border/60 bg-black',
+                      /* Largura total do slide + altura pela proporção intrínseca; limita só o máximo — sem cortar com object-cover. */
+                      compact
+                        ? 'max-h-44 w-full max-w-full object-contain sm:max-h-52'
+                        : 'mx-auto max-h-[min(88vh,40rem)] w-full max-w-full object-contain sm:max-h-[min(88vh,48rem)]',
+                    )}
+                    preload="metadata"
+                    playsInline
+                  />
                 )}
               </div>
             ))}

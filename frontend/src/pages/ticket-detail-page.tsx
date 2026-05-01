@@ -468,7 +468,13 @@ export function TicketDetailPage() {
     if (a.mime_type.startsWith('video/')) {
       return (
         <AttachmentPreview key={a.id} attachment={a}>
-          <video src={a.url} controls className="max-h-72 w-full rounded-lg border border-border bg-black/40" preload="metadata" />
+          <video
+            src={a.url}
+            controls
+            playsInline
+            preload="metadata"
+            className="mx-auto block max-h-[min(75vh,24rem)] w-full max-w-full rounded-lg border border-border bg-black object-contain"
+          />
         </AttachmentPreview>
       );
     }
