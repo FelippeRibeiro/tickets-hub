@@ -273,6 +273,56 @@ export function getTickets(
   return api<Ticket[]>(`/api/tickets${query ? `?${query}` : ''}`)
 }
 
+export function getMyTickets(topicId?: number, options?: { q?: string }) {
+  const params = new URLSearchParams()
+  if (topicId !== undefined && topicId > 0) {
+    params.set('topic_id', String(topicId))
+  }
+  const q = options?.q?.trim()
+  if (q) {
+    params.set('q', q)
+  }
+  const query = params.toString()
+  return api<Ticket[]>(`/api/me/tickets${query ? `?${query}` : ''}`)
+}
+
+export type MyActivityComment = Comment & {
+  ticket_title: string
+  topic_name: string
+}
+
+export type PaginatedMyComments = {
+  items: MyActivityComment[]
+  limit: number
+  offset: number
+  next_offset: number
+  has_more: boolean
+}
+
+export type PaginatedMyLikedTickets = {
+  items: Ticket[]
+  limit: number
+  offset: number
+  next_offset: number
+  has_more: boolean
+}
+
+export function getMyComments(params?: { limit?: number; offset?: number }) {
+  const limit = params?.limit ?? 20
+  const offset = params?.offset ?? 0
+  return api<PaginatedMyComments>(
+    `/api/me/comments?limit=${limit}&offset=${offset}`
+  )
+}
+
+export function getMyLikedTickets(params?: { limit?: number; offset?: number }) {
+  const limit = params?.limit ?? 20
+  const offset = params?.offset ?? 0
+  return api<PaginatedMyLikedTickets>(
+    `/api/me/likes?limit=${limit}&offset=${offset}`
+  )
+}
+
 export function getTicket(id: number) {
   return api<Ticket>(`/api/tickets/${id}`)
 }

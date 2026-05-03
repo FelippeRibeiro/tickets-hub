@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Heart, MessageCircle, Reply, Trash2 } from 'lucide-react';
 import {
   ApiError,
@@ -152,6 +152,7 @@ function renderTextWithLinks(text: string) {
 export function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const ticketId = Number(id);
   const [ticket, setTicket] = useState<Ticket | null>(null);
@@ -193,6 +194,13 @@ export function TicketDetailPage() {
   const ticketLink = useMemo(() => (ticket ? extractFirstURL(ticket.description) : null), [ticket]);
 
   const commentTree = useMemo(() => buildCommentTree(comments), [comments]);
+
+  const targetCommentIdFromHash = useMemo(() => {
+    const m = /^#comment-(\d+)$/.exec(location.hash);
+    if (!m) return null;
+    const n = Number(m[1]);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }, [location.hash]);
 
   const scrollToCommentForm = useCallback(() => {
     window.setTimeout(() => {
@@ -278,6 +286,45 @@ export function TicketDetailPage() {
       cancelled = true;
     };
   }, [id, ticketId]);
+
+  const scrolledToCommentFromHashRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    scrolledToCommentFromHashRef.current = null;
+  }, [location.hash]);
+
+  /** Abre páginas de comentários até o âncora existir e faz scroll (ex.: link da Minha atividade). */
+  useEffect(() => {
+    if (!ticket || loading || targetCommentIdFromHash == null) {
+      return;
+    }
+    const found = comments.some((c) => c.id === targetCommentIdFromHash);
+    if (found) {
+      if (scrolledToCommentFromHashRef.current === targetCommentIdFromHash) {
+        return;
+      }
+      scrolledToCommentFromHashRef.current = targetCommentIdFromHash;
+      const cid = targetCommentIdFromHash;
+      const t = window.setTimeout(() => {
+        document.getElementById(`comment-${cid}`)?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        });
+      }, 100);
+      return () => window.clearTimeout(t);
+    }
+    if (hasMoreComments && !loadingComments) {
+      void loadCommentsPage(ticket.id, nextOffset);
+    }
+  }, [
+    ticket,
+    loading,
+    targetCommentIdFromHash,
+    comments,
+    hasMoreComments,
+    loadingComments,
+    nextOffset,
+  ]);
 
   useEffect(() => {
     const el = commentsContainerRef.current;
@@ -493,8 +540,9 @@ export function TicketDetailPage() {
           return (
             <div key={comment.id} className="space-y-2">
               <article
+                id={`comment-${comment.id}`}
                 className={cn(
-                  'rounded-xl border border-border bg-card p-3',
+                  'scroll-mt-28 rounded-xl border border-border bg-card p-3',
                   depth > 0 && 'bg-muted/15',
                 )}
               >

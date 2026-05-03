@@ -3,14 +3,15 @@ import { useAuth } from '@/contexts/auth-context'
 import { AppShell } from '@/components/app-shell'
 import { ProtectedRoute } from '@/components/protected-route'
 import { AdminPage } from '@/pages/admin-page'
+import {
+  ActivityCommentsTab,
+  ActivityLikesTab,
+  ActivityPageLayout,
+} from '@/pages/activity-page'
 import { HomePage } from '@/pages/home-page'
 import { LoginPage } from '@/pages/login-page'
 import { RegisterPage } from '@/pages/register-page'
 import { TicketDetailPage } from '@/pages/ticket-detail-page'
-
-function MyTicketsPage() {
-  return <HomePage onlyMine title="Meus tickets" subtitle="Tickets criados por você" />
-}
 
 function AdminPageWrapper() {
   const { user } = useAuth()
@@ -33,7 +34,13 @@ export default function App() {
         }
       >
         <Route path="/" element={<HomePage />} />
-        <Route path="/meus-tickets" element={<MyTicketsPage />} />
+        <Route path="/meus-tickets" element={<Navigate to="/minha-atividade/tickets" replace />} />
+        <Route path="/minha-atividade" element={<ActivityPageLayout />}>
+          <Route index element={<Navigate to="tickets" replace />} />
+          <Route path="tickets" element={<HomePage onlyMine embedded />} />
+          <Route path="comentarios" element={<ActivityCommentsTab />} />
+          <Route path="likes" element={<ActivityLikesTab />} />
+        </Route>
         <Route path="/ticket/:id" element={<TicketDetailPage />} />
         <Route path="/admin" element={<AdminPageWrapper />} />
       </Route>

@@ -1,30 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowUpDown, MessageCircle, Heart } from 'lucide-react';
-import { ApiError, getTickets, getTopics, likeTicket, unlikeTicket, type Ticket, type Topic } from '@/lib/api';
+import { ArrowUpDown } from 'lucide-react';
+import {
+  ApiError,
+  getMyTickets,
+  getTickets,
+  getTopics,
+  likeTicket,
+  unlikeTicket,
+  type Ticket,
+  type Topic,
+} from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
 import { ComposeTicketDialog } from '@/components/compose-ticket-dialog';
 import { CreateTopicDialog } from '@/components/create-topic-dialog';
-import { TicketFeedAttachments } from '@/components/ticket-feed-attachments';
-import { Badge } from '@/components/ui/badge';
+import { TicketFeedCard } from '@/components/ticket-feed-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
-import { UserAvatar } from '@/components/user-avatar';
 import { FEED_REFETCH_EVENT } from '@/lib/feed-events';
 import { cn } from '@/lib/utils';
-
-function formatDate(iso: string) {
-  try {
-    return new Date(iso).toLocaleString('pt-BR', {
-      dateStyle: 'short',
-      timeStyle: 'short',
-    });
-  } catch {
-    return iso;
-  }
-}
 
 const sortLabels = {
   created_at_desc: 'Data de publicação',
@@ -38,12 +33,15 @@ type HomePageProps = {
   onlyMine?: boolean;
   title?: string;
   subtitle?: string;
+  /** Esconde o título principal quando dentro de “Minha atividade”. */
+  embedded?: boolean;
 }
 
 export function HomePage({
   onlyMine = false,
   title = 'Feed',
   subtitle = 'Últimos tickets da comunidade',
+  embedded = false,
 }: HomePageProps) {
   const { user } = useAuth();
   const [topics, setTopics] = useState<Topic[]>([]);
@@ -72,10 +70,10 @@ export function HomePage({
   }, [searchInput]);
 
   const loadTickets = useCallback(async () => {
-    const list = await getTickets(topicFilter ?? undefined, {
-      mine: onlyMine,
-      q: debouncedSearch || undefined,
-    });
+    const q = debouncedSearch || undefined;
+    const list = onlyMine
+      ? await getMyTickets(topicFilter ?? undefined, { q })
+      : await getTickets(topicFilter ?? undefined, { mine: false, q });
     setTickets(list);
   }, [onlyMine, topicFilter, debouncedSearch]);
 
@@ -176,16 +174,28 @@ export function HomePage({
   }
 
   return (
-    <div className="mx-auto min-h-svh max-w-2xl border-x border-border/70 bg-card/10">
-      <header className="sticky top-0 z-30 border-b border-border/70 bg-background/90 px-5 py-4 backdrop-blur">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">{title}</h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p>
-          </div>
-          {user ? <ComposeTicketDialog topics={topics} onCreated={refreshFeed} onTopicCreated={loadTopics} /> : null}
+    <div
+      className={cn(
+        embedded ? 'min-h-0' : 'mx-auto min-h-svh max-w-2xl border-x border-border/70 bg-card/10'
+      )}
+    >
+      {embedded ? (
+        <div className="sticky top-0 z-30 flex justify-end border-b border-border/70 bg-background/90 px-5 py-3 backdrop-blur">
+          {user ? (
+            <ComposeTicketDialog topics={topics} onCreated={refreshFeed} onTopicCreated={loadTopics} />
+          ) : null}
         </div>
-      </header>
+      ) : (
+        <header className="sticky top-0 z-30 border-b border-border/70 bg-background/90 px-5 py-4 backdrop-blur">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h1 className="text-xl font-bold tracking-tight">{title}</h1>
+              <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p>
+            </div>
+            {user ? <ComposeTicketDialog topics={topics} onCreated={refreshFeed} onTopicCreated={loadTopics} /> : null}
+          </div>
+        </header>
+      )}
 
       <div className="border-b border-border/70 px-4 py-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -261,56 +271,14 @@ export function HomePage({
           </div>
         ) : (
           sortedTickets.map((t) => (
-            <article
+            <TicketFeedCard
               key={t.id}
-              className="mb-3 rounded-xl border border-border/70 bg-card/60 px-4 py-3 shadow-sm transition-colors hover:bg-muted/30"
-            >
-              <div className="flex items-start gap-3">
-                <UserAvatar
-                  userId={t.user_id}
-                  name={t.user_name}
-                  hasAvatar={Boolean(t.user_has_avatar)}
-                  className="size-10 shrink-0 self-start"
-                />
-                <div className="min-w-0 flex-1">
-                  <Link
-                    to={`/ticket/${t.id}`}
-                    className="-m-1 block rounded-lg p-1 outline-offset-2 transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-semibold">{t.user_name}</span>
-                      <span className="text-muted-foreground">·</span>
-                      <span className="text-xs text-muted-foreground">{formatDate(t.created_at)}</span>
-                    </div>
-                    <Badge variant="secondary" className="mt-1 text-[10px]">
-                      {t.topic_name || `Tópico #${t.topic_id}`}
-                    </Badge>
-                    <p className="mt-2 text-base font-semibold leading-snug">{t.title}</p>
-                    <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{t.description}</p>
-                  </Link>
-                  {t.attachments && t.attachments.length > 0 ? (
-                    <div className="mt-2">
-                      <TicketFeedAttachments attachments={t.attachments} />
-                    </div>
-                  ) : null}
-                  <div className="mt-3 flex max-w-xs items-center gap-6 text-muted-foreground">
-                    <button
-                      type="button"
-                      className={cn('flex items-center gap-1.5 text-xs', likedByTicket[t.id] ? 'text-red-400' : 'text-muted-foreground')}
-                      disabled={pendingLikeByTicket[t.id]}
-                      onClick={(e) => void onToggleLike(e, t.id)}
-                    >
-                      <Heart className={cn('size-4', likedByTicket[t.id] ? 'fill-current opacity-100' : 'opacity-60')} />
-                      <span className="opacity-90">{likesByTicket[t.id] ?? t.likes_count ?? 0}</span>
-                    </button>
-                    <Link to={`/ticket/${t.id}`} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
-                      <MessageCircle className={`size-4 opacity-60 ${(t.comments_count ?? 0 > 0) ? 'text-green-400' : 'text-muted-foreground'}`} />
-                      <span className="opacity-70">{t.comments_count ?? 0}</span>
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </article>
+              ticket={t}
+              liked={!!likedByTicket[t.id]}
+              likesCount={likesByTicket[t.id] ?? t.likes_count ?? 0}
+              pendingLike={!!pendingLikeByTicket[t.id]}
+              onToggleLike={onToggleLike}
+            />
           ))
         )}
       </div>

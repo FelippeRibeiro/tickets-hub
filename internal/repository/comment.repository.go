@@ -76,6 +76,42 @@ func (cr *CommentRepository) Create(userID int, comment *model.CreateComment) (*
 	return &out, nil
 }
 
+// ListByAuthor returns comments created by authorUserID, newest first, with ticket/topic labels.
+func (cr *CommentRepository) ListByAuthor(authorUserID int, limit int, offset int, viewerUserID int) ([]model.CommentWithTicketContext, bool, error) {
+	out := []model.CommentWithTicketContext{}
+	err := cr.db.Select(&out, `SELECT c.id, c.comment, c.created_at,
+	 COALESCE(c.user_id, 0) as user_id, c.ticket_id, c.is_anonymous,
+	 c.parent_comment_id,
+	 COALESCE(u.name, 'Usuário não encontrado') as user_name,
+	 (COALESCE(octet_length(u.avatar_data), 0) > 0) AS user_has_avatar,
+	 COALESCE((SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id), 0) AS likes_count,
+	 ($4 > 0 AND EXISTS(SELECT 1 FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.user_id = $4)) AS liked,
+	 CASE
+	   WHEN c.parent_comment_id IS NULL THEN ''
+	   WHEN parent.is_anonymous THEN 'Usuário anônimo'
+	   ELSE COALESCE(pu.name, '')
+	 END AS parent_user_name,
+	 t.title AS ticket_title,
+	 tp.name AS topic_name
+		FROM comments c
+		INNER JOIN tickets t ON t.id = c.ticket_id
+		INNER JOIN topics tp ON tp.id = t.topic_id
+		LEFT JOIN users u ON c.user_id = u.id
+		LEFT JOIN comments parent ON parent.id = c.parent_comment_id
+		LEFT JOIN users pu ON parent.user_id = pu.id AND COALESCE(parent.is_anonymous, FALSE) = FALSE
+		WHERE c.user_id = $1
+		ORDER BY c.created_at DESC
+		LIMIT $2 OFFSET $3`, authorUserID, limit+1, offset, viewerUserID)
+	if err != nil {
+		return nil, false, err
+	}
+	hasMore := len(out) > limit
+	if hasMore {
+		out = out[:limit]
+	}
+	return out, hasMore, nil
+}
+
 func (cr *CommentRepository) ListByTicket(ticketID int, limit int, offset int, viewerUserID int) ([]model.CommentWithUserName, bool, error) {
 	out := []model.CommentWithUserName{}
 	err := cr.db.Select(&out, `SELECT c.id, c.comment, c.created_at, 

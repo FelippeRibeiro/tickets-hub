@@ -38,8 +38,8 @@ export function AppShell() {
             <NavLink to="/" end className={navClass}>
               Início
             </NavLink>
-            <NavLink to="/meus-tickets" className={navClass}>
-              Meus tickets
+            <NavLink to="/minha-atividade/tickets" className={navClass}>
+              Minha atividade
             </NavLink>
             {user?.is_admin ? (
               <NavLink to="/admin" className={navClass}>
@@ -104,8 +104,8 @@ export function AppShell() {
               <NavLink to="/" end className={navClass}>
                 Início
               </NavLink>
-              <NavLink to="/meus-tickets" className={navClass}>
-                Meus tickets
+              <NavLink to="/minha-atividade/tickets" className={navClass}>
+                Minha atividade
               </NavLink>
               {user?.is_admin ? (
                 <NavLink to="/admin" className={navClass}>
