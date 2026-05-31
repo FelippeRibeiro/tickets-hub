@@ -4,6 +4,7 @@ services:
     container_name: ticket-app
     volumes:
       - ./.env:/app/.env
+      - ./data/uploads:/app/data/uploads
     ports:
       - "8080:8080"
     depends_on:
