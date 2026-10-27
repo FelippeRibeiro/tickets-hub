@@ -88,8 +88,12 @@ func Server() {
 		http.FileServer(http.Dir(staticDir)).ServeHTTP(w, r)
 	})
 
-	fmt.Println("Listening on port 8080")
-	if err := http.ListenAndServe(":8080", server); err != nil {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	fmt.Println("Listening on port " + port)
+	if err := http.ListenAndServe(":"+port, server); err != nil {
 		panic(err)
 	}
 
